@@ -1,39 +1,17 @@
 <template>
   <div class="pdf-container" ref="pdfContainer" 
-       @mousedown="$emit('selection-start', $event)" 
-       @mousemove="$emit('selection-update', $event)" 
-       @mouseup="$emit('selection-end', $event)">
+       @mousedown="handleMouseDown" 
+       @mousemove="handleMouseMove" 
+       @mouseup="handleMouseUp"
+       @click="handleClick">
+    <!-- PDF 渲染层 -->
     <canvas ref="pdfCanvas" class="pdf-canvas"></canvas>
-
-    <!-- 视觉块覆盖层 -->
-    <div class="blocks-overlay" 
-         :style="{ 
-           width: '100%', 
-           height: '100%'
-         }">
-      <!-- 每个视觉块 -->
-      <template v-for="block in blocks" :key="block.id">
-        <div v-if="convertCoordinates(block.bbox)"
-             class="visual-block"
-             :class="{
-               'selected': selectedBlocks.includes(block.id),
-               'highlighted': highlightedBlock === block.id,
-               'current': currentBlock === block.id
-             }"
-             :style="{
-               left: convertCoordinates(block.bbox)?.left + 'px',
-               top: convertCoordinates(block.bbox)?.top + 'px',
-               width: convertCoordinates(block.bbox)?.width + 'px',
-               height: convertCoordinates(block.bbox)?.height + 'px'
-             }"
-             @click="$emit('block-click', block.id)">
-          <div class="block-info">
-            <span class="block-type">{{ block.type }}</span>
-            <span class="block-id">#{{ block.id }}</span>
-          </div>
-        </div>
-      </template>
-
+    
+    <!-- 视觉块渲染层 -->
+    <canvas ref="blocksCanvas" class="blocks-canvas"></canvas>
+    
+    <!-- 交互层（仅用于框选框显示） -->
+    <div class="interaction-layer">
       <!-- 选择框 -->
       <div v-if="selectionBox" class="selection-box" 
            :style="{
@@ -43,26 +21,25 @@
              height: selectionBox.height + 'px'
            }">
       </div>
-
-      <!-- 区域边界框 -->
-      <template v-for="region in regions" :key="region.id">
-        <div v-if="convertCoordinates(region.bbox)"
-             class="region-boundary"
-             :style="{
-               left: convertCoordinates(region.bbox)?.left + 'px',
-               top: convertCoordinates(region.bbox)?.top + 'px',
-               width: convertCoordinates(region.bbox)?.width + 'px',
-               height: convertCoordinates(region.bbox)?.height + 'px'
-             }">
-          <div class="region-label">区域 #{{ region.id }}</div>
+      
+      <!-- 悬浮提示 -->
+      <div v-if="hoveredBlock" class="block-tooltip"
+           :style="{
+             left: tooltipPosition.x + 'px',
+             top: tooltipPosition.y + 'px'
+           }">
+        <div class="tooltip-content">
+          <div>类型: {{ hoveredBlock.type }}</div>
+          <div>ID: #{{ hoveredBlock.id }}</div>
+          <div>页面: {{ hoveredBlock.pageIndex + 1 }}</div>
         </div>
-      </template>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, markRaw } from 'vue'
+import { ref, onMounted, nextTick, markRaw, computed, watch, onUnmounted } from 'vue'
 
 interface Props {
   blocks: any[]
@@ -92,9 +69,35 @@ const emit = defineEmits<Emits>()
 
 const pdfDoc = ref<any>(null)
 const pdfCanvas = ref<HTMLCanvasElement>()
+const blocksCanvas = ref<HTMLCanvasElement>()
 const pdfContainer = ref<HTMLElement>()
 const canvasWidth = ref(0)
 const canvasHeight = ref(0)
+
+// 交互状态
+const isSelecting = ref(false)
+const hoveredBlock = ref<any>(null)
+const tooltipPosition = ref({ x: 0, y: 0 })
+const mousePosition = ref({ x: 0, y: 0 })
+
+// 视觉块坐标缓存
+const blocksWithCoords = ref<any[]>([])
+
+// 🎨 块类型颜色映射
+const getBlockTypeColor = (type: string) => {
+  const colors: Record<string, { fill: string; stroke: string }> = {
+    'text': { fill: 'rgba(59, 130, 246, 0.15)', stroke: '#3b82f6' },      // 蓝色 - 文本
+    'title': { fill: 'rgba(168, 85, 247, 0.15)', stroke: '#a855f7' },    // 紫色 - 标题
+    'header': { fill: 'rgba(16, 185, 129, 0.15)', stroke: '#10b981' },   // 绿色 - 页眉
+    'footer': { fill: 'rgba(107, 114, 128, 0.15)', stroke: '#6b7280' },  // 灰色 - 页脚
+    'image': { fill: 'rgba(245, 158, 11, 0.15)', stroke: '#f59e0b' },    // 黄色 - 图片
+    'table': { fill: 'rgba(239, 68, 68, 0.15)', stroke: '#ef4444' },     // 红色 - 表格
+    'list': { fill: 'rgba(34, 197, 94, 0.15)', stroke: '#22c55e' },      // 浅绿 - 列表
+    'formula': { fill: 'rgba(147, 51, 234, 0.15)', stroke: '#9333ea' },  // 深紫 - 公式
+    'default': { fill: 'rgba(156, 163, 175, 0.15)', stroke: '#9ca3af' }  // 默认灰色
+  }
+  return colors[type] || colors.default
+}
 
 // 坐标转换函数
 const convertCoordinates = (bbox: { x: number, y: number, width: number, height: number }) => {
@@ -120,6 +123,277 @@ const convertCoordinates = (bbox: { x: number, y: number, width: number, height:
     height: bbox.height * scale
   }
 }
+
+// 🎨 Canvas 绘制视觉块和区域
+const drawBlocks = () => {
+  if (!blocksCanvas.value) return
+  
+  console.log(`🎨 [Canvas] 开始绘制 ${props.blocks.length} 个视觉块和 ${props.regions.length} 个区域`)
+  const startTime = performance.now()
+  
+  const canvas = blocksCanvas.value
+  const ctx = canvas.getContext('2d')!
+  
+  // 清空画布
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  
+  // 计算并缓存所有块的坐标
+  blocksWithCoords.value = props.blocks.map(block => {
+    const coords = convertCoordinates(block.bbox)
+    return { ...block, coords }
+  }).filter(block => block.coords)
+  
+  // 1. 首先绘制区域（作为背景层）
+  drawRegions(ctx)
+  
+  // 2. 然后绘制视觉块
+  drawVisualBlocks(ctx)
+  
+  const endTime = performance.now()
+  console.log(`🎨 [Canvas] 完整绘制完成，耗时: ${(endTime - startTime).toFixed(2)}ms`)
+}
+
+// 🏛️ 绘制区域
+const drawRegions = (ctx: CanvasRenderingContext2D) => {
+  if (!props.regions.length) return
+  
+  console.log(`🏛️ [Canvas] 绘制 ${props.regions.length} 个区域`)
+  
+  props.regions.forEach((region, index) => {
+    const coords = convertCoordinates(region.bbox)
+    if (!coords) return
+    
+    // 区域背景
+    ctx.fillStyle = 'rgba(220, 53, 69, 0.1)'
+    ctx.fillRect(coords.left, coords.top, coords.width, coords.height)
+    
+    // 区域边框
+    ctx.strokeStyle = '#dc3545'
+    ctx.lineWidth = 3
+    ctx.setLineDash([5, 5]) // 虚线边框
+    ctx.strokeRect(coords.left, coords.top, coords.width, coords.height)
+    ctx.setLineDash([]) // 重置线条样式
+    
+    // 区域标签背景
+    const labelText = `区域 #${region.id}`
+    const labelWidth = ctx.measureText(labelText).width + 16
+    const labelHeight = 24
+    
+    ctx.fillStyle = '#dc3545'
+    ctx.fillRect(coords.left, coords.top - labelHeight, labelWidth, labelHeight)
+    
+    // 区域标签文字
+    ctx.fillStyle = 'white'
+    ctx.font = 'bold 12px Arial'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(labelText, coords.left + 8, coords.top - labelHeight / 2)
+    
+    // 如果有注释，显示注释预览
+    if (region.annotation && region.annotation.trim()) {
+      const annotationPreview = region.annotation.length > 20 
+        ? region.annotation.substring(0, 20) + '...' 
+        : region.annotation
+      
+      ctx.fillStyle = 'rgba(220, 53, 69, 0.9)'
+      ctx.fillRect(coords.left, coords.top + coords.height, labelWidth, 20)
+      
+      ctx.fillStyle = 'white'
+      ctx.font = '10px Arial'
+      ctx.fillText(annotationPreview, coords.left + 8, coords.top + coords.height + 10)
+    }
+  })
+}
+
+// 📦 绘制视觉块
+const drawVisualBlocks = (ctx: CanvasRenderingContext2D) => {
+  blocksWithCoords.value.forEach(block => {
+    const coords = block.coords!
+    const isSelected = props.selectedBlocks.includes(block.id)
+    const isHighlighted = props.highlightedBlock === block.id
+    const isCurrent = props.currentBlock === block.id
+    const isHovered = hoveredBlock.value?.id === block.id
+    
+    // 🎨 根据块类型获取颜色
+    const typeColor = getBlockTypeColor(block.type)
+    let fillStyle, strokeStyle, lineWidth, shadowBlur = 0
+    
+    if (isCurrent) {
+      fillStyle = 'rgba(255, 193, 7, 0.4)'
+      strokeStyle = '#ffc107'
+      lineWidth = 4
+      shadowBlur = 8
+    } else if (isSelected) {
+      fillStyle = 'rgba(40, 167, 69, 0.3)'
+      strokeStyle = '#28a745'
+      lineWidth = 3
+      shadowBlur = 4
+    } else if (isHighlighted || isHovered) {
+      fillStyle = typeColor.fill.replace('0.15', '0.25') // 增加透明度
+      strokeStyle = typeColor.stroke
+      lineWidth = 2
+      shadowBlur = 2
+    } else {
+      fillStyle = typeColor.fill
+      strokeStyle = typeColor.stroke
+      lineWidth = 1
+    }
+    
+    // 设置阴影效果
+    if (shadowBlur > 0) {
+      ctx.shadowColor = strokeStyle
+      ctx.shadowBlur = shadowBlur
+      ctx.shadowOffsetX = 2
+      ctx.shadowOffsetY = 2
+    }
+    
+    // 绘制块背景
+    ctx.fillStyle = fillStyle
+    ctx.fillRect(coords.left, coords.top, coords.width, coords.height)
+    
+    // 绘制块边框
+    ctx.strokeStyle = strokeStyle
+    ctx.lineWidth = lineWidth
+    ctx.strokeRect(coords.left, coords.top, coords.width, coords.height)
+    
+    // 重置阴影
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = 0
+    
+    // 绘制块信息
+    const shouldShowInfo = (isSelected || isHighlighted || isCurrent) && 
+                          coords.width > 60 && coords.height > 20
+    
+    if (shouldShowInfo) {
+      // 信息背景
+      const infoText = `${block.type} #${block.id}`
+      ctx.font = '10px Arial'
+      const textWidth = ctx.measureText(infoText).width + 8
+      const textHeight = 16
+      
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)'
+      ctx.fillRect(coords.left, coords.top - textHeight, textWidth, textHeight)
+      
+      // 信息文字
+      ctx.fillStyle = 'white'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(infoText, coords.left + 4, coords.top - textHeight / 2)
+    }
+  })
+}
+
+// 🔍 根据坐标查找视觉块
+const findBlockAtPosition = (x: number, y: number) => {
+  return blocksWithCoords.value.find(block => {
+    const coords = block.coords
+    return x >= coords.left && x <= coords.left + coords.width &&
+           y >= coords.top && y <= coords.top + coords.height
+  })
+}
+
+// 🔍 查找位置处的区域
+const findRegionAtPosition = (x: number, y: number) => {
+  return props.regions.find(region => {
+    const coords = convertCoordinates(region.bbox)
+    if (!coords) return false
+    
+    return x >= coords.left && x <= coords.left + coords.width &&
+           y >= coords.top && y <= coords.top + coords.height
+  })
+}
+
+// 🖱️ 鼠标事件处理
+const handleMouseDown = (event: MouseEvent) => {
+  const rect = pdfContainer.value?.getBoundingClientRect()
+  if (!rect) return
+  
+  mousePosition.value = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  }
+  
+  // 检查是否点击了视觉块
+  const clickedBlock = findBlockAtPosition(mousePosition.value.x, mousePosition.value.y)
+  if (clickedBlock) {
+    emit('block-click', clickedBlock.id)
+    return
+  }
+  
+  // 检查是否点击了区域
+  const clickedRegion = findRegionAtPosition(mousePosition.value.x, mousePosition.value.y)
+  if (clickedRegion) {
+    console.log('点击了区域:', clickedRegion.id)
+    return
+  }
+  
+  // 开始框选
+  isSelecting.value = true
+  emit('selection-start', event)
+}
+
+const handleMouseMove = (event: MouseEvent) => {
+  const rect = pdfContainer.value?.getBoundingClientRect()
+  if (!rect) return
+  
+  mousePosition.value = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  }
+  
+  if (isSelecting.value) {
+    emit('selection-update', event)
+  } else {
+    // 更新悬浮块和区域
+    const block = findBlockAtPosition(mousePosition.value.x, mousePosition.value.y)
+    const region = findRegionAtPosition(mousePosition.value.x, mousePosition.value.y)
+    
+    if (block !== hoveredBlock.value) {
+      hoveredBlock.value = block
+      if (block) {
+        tooltipPosition.value = {
+          x: mousePosition.value.x + 10,
+          y: mousePosition.value.y - 10
+        }
+      }
+    }
+    
+    // 更新鼠标样式
+    if (pdfContainer.value) {
+      if (block || region) {
+        pdfContainer.value.style.cursor = 'pointer'
+      } else {
+        pdfContainer.value.style.cursor = 'crosshair'
+      }
+    }
+  }
+}
+
+const handleMouseUp = (event: MouseEvent) => {
+  if (isSelecting.value) {
+    isSelecting.value = false
+    emit('selection-end', event)
+  }
+}
+
+const handleClick = (event: MouseEvent) => {
+  // 处理单击事件
+}
+
+// 监听属性变化，重新绘制
+watch([
+  () => props.blocks, 
+  () => props.regions,
+  () => props.selectedBlocks, 
+  () => props.highlightedBlock, 
+  () => props.currentBlock, 
+  () => props.overlayDimensions
+], () => {
+  nextTick(() => {
+    drawBlocks()
+  })
+}, { deep: true })
 
 // 加载PDF
 const loadPdf = async () => {
@@ -147,18 +421,26 @@ const loadPdf = async () => {
 
 // 渲染页面
 const renderPage = async (num: number) => {
-  if (!pdfDoc.value || !pdfCanvas.value) return
+  if (!pdfDoc.value || !pdfCanvas.value || !blocksCanvas.value) return
 
   try {
     const page = await pdfDoc.value.getPage(num)
     const canvas = pdfCanvas.value
+    const blocksCanvasEl = blocksCanvas.value
     const ctx = canvas.getContext('2d')!
     const viewport = page.getViewport({ scale: props.scale })
 
+    // 设置PDF画布
     canvas.width = viewport.width
     canvas.height = viewport.height
     canvas.style.width = viewport.width + 'px'
     canvas.style.height = viewport.height + 'px'
+    
+    // 设置视觉块画布（与PDF画布相同尺寸）
+    blocksCanvasEl.width = viewport.width
+    blocksCanvasEl.height = viewport.height
+    blocksCanvasEl.style.width = viewport.width + 'px'
+    blocksCanvasEl.style.height = viewport.height + 'px'
 
     canvasWidth.value = viewport.width
     canvasHeight.value = viewport.height
@@ -171,12 +453,14 @@ const renderPage = async (num: number) => {
     await page.render(renderContext).promise
     emit('page-rendered', num)
 
-    // 立即更新覆盖层尺寸，减少延迟
+    // 立即更新覆盖层尺寸
     await nextTick()
     updateOverlayDimensions()
     
-    // 再次确保尺寸正确（某些情况下需要等待DOM更新）
-    setTimeout(updateOverlayDimensions, 50)
+    // 绘制视觉块
+    setTimeout(() => {
+      drawBlocks()
+    }, 50)
   } catch (error) {
     console.error('渲染页面失败:', error)
   }
@@ -217,54 +501,34 @@ onMounted(() => {
   flex: 1;
   overflow: auto;
   background: #f5f5f5;
+  cursor: crosshair;
 }
 
 .pdf-canvas {
   display: block;
-}
-
-.blocks-overlay {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1;
+}
+
+.blocks-canvas {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
   pointer-events: none;
 }
 
-.visual-block {
+.interaction-layer {
   position: absolute;
-  border: 2px solid transparent;
-  background: rgba(0, 123, 255, 0.1);
-  pointer-events: auto;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.visual-block:hover {
-  border-color: #007bff;
-  background: rgba(0, 123, 255, 0.2);
-}
-
-.visual-block.selected {
-  border-color: #28a745;
-  background: rgba(40, 167, 69, 0.3);
-}
-
-.visual-block.current {
-  border-color: #ffc107;
-  background: rgba(255, 193, 7, 0.3);
-  box-shadow: 0 0 0 2px #ffc107;
-}
-
-.block-info {
-  position: absolute;
-  top: -20px;
+  top: 0;
   left: 0;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 2px 6px;
-  font-size: 10px;
-  border-radius: 2px;
-  white-space: nowrap;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
 }
 
 .selection-box {
@@ -274,21 +538,21 @@ onMounted(() => {
   pointer-events: none;
 }
 
-.region-boundary {
+.block-tooltip {
   position: absolute;
-  border: 3px solid #dc3545;
-  background: rgba(220, 53, 69, 0.1);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
   pointer-events: none;
+  z-index: 10;
+  max-width: 200px;
 }
 
-.region-label {
-  position: absolute;
-  top: -25px;
-  left: 0;
-  background: #dc3545;
-  color: white;
-  padding: 2px 8px;
-  font-size: 12px;
-  border-radius: 3px;
+.tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 </style> 

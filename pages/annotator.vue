@@ -71,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import type { Bbox } from '~/utils/pdf-parser'
 import { usePDFStore, useAnnotationStore, useUIStore } from '~/stores'
 import { perfMonitor, measureAsyncOperation } from '~/utils/performance-monitor'
@@ -165,14 +165,41 @@ const nextPageWithDebounce = async () => {
   
   // 立即更新页码，但延迟渲染
   console.log(`➡️ [Annotator] 开始下一页操作`)
-  const startTime = performance.now()
+  const totalStartTime = performance.now()
   
   console.log(`📖 [Annotator] 从第 ${pdfStore.currentPage} 页切换到第 ${pdfStore.currentPage + 1} 页`)
   
-  const storeStartTime = performance.now()
+  // 🔍 详细监控 Store 操作
+  console.log(`🏪 [Store] 开始详细性能分析`)
+  
+  // 1. 监控 nextPage 调用
+  const nextPageStart = performance.now()
   pdfStore.nextPage()
+  const nextPageEnd = performance.now()
+  console.log(`🏪 [Store] nextPage() 耗时: ${(nextPageEnd - nextPageStart).toFixed(2)}ms`)
+  
+  // 2. 监控 currentPageBlocks getter
+  const blocksStart = performance.now()
+  const blocks = pdfStore.currentPageBlocks
+  const blocksEnd = performance.now()
+  console.log(`🏪 [Store] currentPageBlocks getter 耗时: ${(blocksEnd - blocksStart).toFixed(2)}ms, 块数量: ${blocks.length}`)
+  
+  // 3. 监控其他 computed 属性
+  const computedStart = performance.now()
+  const page = pdfStore.currentPage
+  const total = pdfStore.totalPages
+  const overlay = pdfStore.overlayDimensions
+  const computedEnd = performance.now()
+  console.log(`🏪 [Store] 其他 computed 属性耗时: ${(computedEnd - computedStart).toFixed(2)}ms`)
+  
+  // 4. 监控 Vue 响应式更新
+  const reactiveStart = performance.now()
+  await nextTick() // 等待 Vue 响应式更新完成
+  const reactiveEnd = performance.now()
+  console.log(`⚡ [Vue] 响应式更新耗时: ${(reactiveEnd - reactiveStart).toFixed(2)}ms`)
+  
   const storeEndTime = performance.now()
-  console.log(`🏪 [Annotator] Store 状态更新耗时: ${(storeEndTime - storeStartTime).toFixed(2)}ms`)
+  console.log(`🏪 [Store] 总状态更新耗时: ${(storeEndTime - totalStartTime).toFixed(2)}ms`)
   
   // 防抖渲染
   pageChangeTimeout = setTimeout(async () => {
@@ -181,8 +208,12 @@ const nextPageWithDebounce = async () => {
     const renderEndTime = performance.now()
     console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
     
-    const totalTime = performance.now() - startTime
+    const totalTime = performance.now() - totalStartTime
     console.log(`✅ [Annotator] 下一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
+    
+    // 🎯 性能分析总结
+    console.log(`📊 [性能分析] Store更新: ${(storeEndTime - totalStartTime).toFixed(2)}ms (${((storeEndTime - totalStartTime) / totalTime * 100).toFixed(1)}%)`)
+    console.log(`📊 [性能分析] PDF渲染: ${(renderEndTime - renderStartTime).toFixed(2)}ms (${((renderEndTime - renderStartTime) / totalTime * 100).toFixed(1)}%)`)
   }, 50) // 50ms 防抖
 }
 

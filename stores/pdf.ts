@@ -67,12 +67,23 @@ export const usePDFStore = defineStore('pdf', {
       if (state._pageBlocksCache.has(cacheKey)) {
         const cached = state._pageBlocksCache.get(cacheKey)
         if (cached) {
-          console.log(`🏪 [PDFStore] 🚀 使用缓存结果，耗时: 0.00ms，结果数量: ${cached.length}`)
+          const endTime = performance.now()
+          console.log(`🏪 [PDFStore] 🚀 使用缓存结果，耗时: ${(endTime - startTime).toFixed(2)}ms，结果数量: ${cached.length}`)
           return cached
         }
       }
       
-      const result = state.visualBlocks.filter(block => block.pageIndex === state.currentPage - 1)
+      // 🚀 优化：使用更高效的过滤方法
+      const targetPageIndex = state.currentPage - 1
+      const result = []
+      
+      // 直接遍历，避免 filter 的函数调用开销
+      for (let i = 0; i < state.visualBlocks.length; i++) {
+        const block = state.visualBlocks[i]
+        if (block.pageIndex === targetPageIndex) {
+          result.push(block)
+        }
+      }
       
       // 缓存结果，但限制缓存大小
       if (state._pageBlocksCache.size > 10) {
@@ -106,11 +117,19 @@ export const usePDFStore = defineStore('pdf', {
   actions: {
     // PDF 文档管理
     setPDFDoc(doc: any) {
-      this.pdfDoc = doc
-      this.totalPages = doc?.numPages || 0
+      console.log(`🏪 [PDFStore] setPDFDoc`)
+      const startTime = performance.now()
+      
+      // 🚀 使用 $patch 批量更新，减少响应式触发
+      this.$patch({
+        pdfDoc: doc,
+        totalPages: doc?.numPages || 0
+      })
+      
+      console.log(`🏪 [PDFStore] setPDFDoc 完成，耗时: ${(performance.now() - startTime).toFixed(2)}ms`)
     },
 
-    // 页面导航
+    // 页面导航 - 优化版本
     setCurrentPage(page: number) {
       console.log(`🏪 [PDFStore] setCurrentPage: ${this.currentPage} -> ${page}`)
       const startTime = performance.now()
@@ -122,6 +141,7 @@ export const usePDFStore = defineStore('pdf', {
           return
         }
         
+        // 🚀 直接赋值，最小化响应式开销
         this.currentPage = page
         console.log(`🏪 [PDFStore] 页面设置完成，耗时: ${(performance.now() - startTime).toFixed(2)}ms`)
       } else {
@@ -129,29 +149,30 @@ export const usePDFStore = defineStore('pdf', {
       }
     },
 
+    // 🚀 优化的翻页方法
     nextPage() {
       console.log(`🏪 [PDFStore] nextPage: ${this.currentPage} -> ${this.currentPage + 1}`)
       const startTime = performance.now()
-      if (this.canGoNext) {
-        const oldPage = this.currentPage
-        // 直接更新，避免不必要的复杂性
+      
+      if (this.currentPage < this.totalPages) {
+        // 🚀 最简单的更新方式
         this.currentPage++
-        console.log(`🏪 [PDFStore] nextPage 完成，页面: ${oldPage} -> ${this.currentPage}，耗时: ${(performance.now() - startTime).toFixed(2)}ms`)
+        console.log(`🏪 [PDFStore] nextPage 完成，耗时: ${(performance.now() - startTime).toFixed(2)}ms`)
       } else {
-        console.log(`⚠️ [PDFStore] 已经是最后一页，无法继续`)
+        console.log(`⚠️ [PDFStore] 已经是最后一页`)
       }
     },
 
     prevPage() {
       console.log(`🏪 [PDFStore] prevPage: ${this.currentPage} -> ${this.currentPage - 1}`)
       const startTime = performance.now()
-      if (this.canGoPrev) {
-        const oldPage = this.currentPage
-        // 直接更新，避免不必要的复杂性
+      
+      if (this.currentPage > 1) {
+        // 🚀 最简单的更新方式
         this.currentPage--
-        console.log(`🏪 [PDFStore] prevPage 完成，页面: ${oldPage} -> ${this.currentPage}，耗时: ${(performance.now() - startTime).toFixed(2)}ms`)
+        console.log(`🏪 [PDFStore] prevPage 完成，耗时: ${(performance.now() - startTime).toFixed(2)}ms`)
       } else {
-        console.log(`⚠️ [PDFStore] 已经是第一页，无法继续`)
+        console.log(`⚠️ [PDFStore] 已经是第一页`)
       }
     },
 
@@ -162,7 +183,10 @@ export const usePDFStore = defineStore('pdf', {
 
     // 缩放控制
     setScale(scale: number) {
-      this.scale = Math.max(0.5, Math.min(3.0, scale))
+      const newScale = Math.max(0.5, Math.min(3.0, scale))
+      if (this.scale !== newScale) {
+        this.scale = newScale
+      }
     },
 
     zoomIn() {
@@ -177,7 +201,7 @@ export const usePDFStore = defineStore('pdf', {
       this.setScale(1.0)
     },
 
-    // 覆盖层管理
+    // 🚀 优化的覆盖层管理
     updateOverlayDimensions(dimensions: PDFState['overlayDimensions']) {
       const startTime = performance.now()
       console.log(`🏪 [PDFStore] 开始更新覆盖层尺寸`)
@@ -195,49 +219,71 @@ export const usePDFStore = defineStore('pdf', {
         return
       }
       
-      this.overlayDimensions = dimensions
+      // 🚀 使用 $patch 批量更新
+      this.$patch({
+        overlayDimensions: dimensions
+      })
+      
       console.log(`🏪 [PDFStore] 覆盖层尺寸更新完成，耗时: ${(performance.now() - startTime).toFixed(2)}ms`)
     },
 
     // 数据加载
     async loadPDFData() {
+      console.log(`🏪 [PDFStore] 开始加载PDF数据`)
+      const startTime = performance.now()
+      
       this.isLoading = true
       this.error = null
       
       try {
         const response = await fetch('/data/middle.json')
         const data: MiddleJsonData = await response.json()
-        this.mineruData = data
         
         // 解析视觉块数据
         const { parseMiddleJsonToBlocks } = await import('~/utils/pdf-parser')
         const blocks = parseMiddleJsonToBlocks(data)
         
-        // 使用 markRaw 优化大数组的响应式性能
-        this.visualBlocks = markRaw(blocks.map((block, index) => ({
-          ...block,
-          id: index + 1,
-          bbox: JSON.parse(block.bbox).reduce((bbox: any, val: number, i: number) => {
-            if (i === 0) bbox.x = val
-            else if (i === 1) bbox.y = val
-            else if (i === 2) bbox.width = val
-            else if (i === 3) bbox.height = val
-            return bbox
-          }, {}),
-          pageInfo: data.pdf_info[block.pageIndex]
-        })))
+        // 🚀 预处理数据，减少运行时计算
+        const processedBlocks = blocks.map((block, index) => {
+          const bbox = JSON.parse(block.bbox)
+          return {
+            ...block,
+            id: index + 1,
+            bbox: {
+              x: bbox[0],
+              y: bbox[1], 
+              width: bbox[2],
+              height: bbox[3]
+            },
+            pageInfo: data.pdf_info[block.pageIndex]
+          }
+        })
         
-        console.log('已加载视觉块:', this.visualBlocks.length)
+        // 🚀 使用 $patch 批量更新，减少响应式触发
+        this.$patch({
+          mineruData: markRaw(data), // 原始数据不需要响应式
+          visualBlocks: markRaw(processedBlocks), // 大数组使用 markRaw
+          isLoading: false
+        })
+        
+        // 清空缓存，因为数据已更新
+        if (this._pageBlocksCache) {
+          this._pageBlocksCache.clear()
+        }
+        
+        const endTime = performance.now()
+        console.log(`🏪 [PDFStore] PDF数据加载完成，耗时: ${(endTime - startTime).toFixed(2)}ms，视觉块: ${processedBlocks.length}`)
+        
       } catch (error) {
         this.error = error instanceof Error ? error.message : '加载PDF数据失败'
         console.error('加载PDF数据失败:', error)
-      } finally {
         this.isLoading = false
       }
     },
 
     // 重置状态
     reset() {
+      // 🚀 直接赋值重置，避免 $patch 的类型问题
       this.pdfDoc = null
       this.currentPage = 1
       this.totalPages = 0
@@ -247,6 +293,11 @@ export const usePDFStore = defineStore('pdf', {
       this.overlayDimensions = { width: 0, height: 0, offsetX: 0, offsetY: 0 }
       this.isLoading = false
       this.error = null
+      
+      // 清空缓存
+      if (this._pageBlocksCache) {
+        this._pageBlocksCache.clear()
+      }
     }
   }
 }) 
