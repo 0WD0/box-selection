@@ -63,20 +63,7 @@ export default defineEventHandler(async (event) => {
     
     const response = await $fetch('/api/files/middle.json')
     
-    // 处理不同类型的响应
-    let jsonText: string
-    if (typeof response === 'string') {
-      jsonText = response
-    } else if (response && typeof response === 'object' && 'type' in response && response.type === 'Buffer') {
-      // 处理 Buffer 类型
-      const buffer = Buffer.from((response as any).data)
-      jsonText = buffer.toString('utf-8')
-    } else {
-      throw new Error('Unexpected response type from API')
-    }
-    
-    const data: MiddleJsonData = JSON.parse(jsonText)
-    console.log('✅ 成功通过API获取数据文件')
+    let data: MiddleJsonData = response as unknown as MiddleJsonData
     
     // 使用processData函数处理数据
     return await processData(data)
