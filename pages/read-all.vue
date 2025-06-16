@@ -132,7 +132,7 @@ const loadPdf = async () => {
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
     // 方式2: 使用CDN (可能有版本不匹配问题)
-    // pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs'
+    // pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.3.31/build/pdf.worker.min.mjs'
 
     // 方式3: 禁用Worker，在主线程运行 (性能较差但兼容性好)
     // pdfjsLib.GlobalWorkerOptions.workerSrc = false
