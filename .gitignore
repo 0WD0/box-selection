@@ -36,3 +36,5 @@ logs
 *.dump
 
 public/data
+
+.wrangler

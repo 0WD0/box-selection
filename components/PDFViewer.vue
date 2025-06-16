@@ -171,8 +171,12 @@ const renderPage = async (num: number) => {
     await page.render(renderContext).promise
     emit('page-rendered', num)
 
+    // 立即更新覆盖层尺寸，减少延迟
     await nextTick()
-    setTimeout(updateOverlayDimensions, 300)
+    updateOverlayDimensions()
+    
+    // 再次确保尺寸正确（某些情况下需要等待DOM更新）
+    setTimeout(updateOverlayDimensions, 50)
   } catch (error) {
     console.error('渲染页面失败:', error)
   }
