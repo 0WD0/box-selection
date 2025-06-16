@@ -317,21 +317,19 @@ const handleMouseDown = (event: MouseEvent) => {
     y: event.clientY - rect.top
   }
   
-  // 检查是否点击了视觉块
+  // 检查是否点击了视觉块（用于记录，但不阻止框选）
   const clickedBlock = findBlockAtPosition(mousePosition.value.x, mousePosition.value.y)
   if (clickedBlock) {
-    emit('block-click', clickedBlock.id)
-    return
+    console.log('点击了视觉块:', clickedBlock.id)
   }
   
-  // 检查是否点击了区域
+  // 检查是否点击了区域（用于记录，但不阻止框选）
   const clickedRegion = findRegionAtPosition(mousePosition.value.x, mousePosition.value.y)
   if (clickedRegion) {
     console.log('点击了区域:', clickedRegion.id)
-    return
   }
   
-  // 开始框选
+  // 总是开始框选（不管是否点击了块或区域）
   isSelecting.value = true
   emit('selection-start', event)
 }

@@ -379,7 +379,7 @@ const endSelection = () => {
 
   // 添加到选择列表
   intersectingBlocks.forEach(block => {
-    annotationStore.addBlockToSelection(block.id)
+    annotationStore.toggleBlockSelection(block.id)
   })
 
   // 清理选择状态
