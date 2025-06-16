@@ -9,6 +9,9 @@
     <slot name="footer">
       <AppFooter />
     </slot>
+    
+    <!-- 全局通知 -->
+    <GlobalNotifications />
   </div>
 </template>
 

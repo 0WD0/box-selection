@@ -240,129 +240,37 @@
 </template>
 
 <script setup>
+import { useSystemStore } from '~/stores'
+
 // 页面元数据
 definePageMeta({
   title: 'NuxtHub 迁移状态'
 })
 
-// 响应式数据
-const stats = ref(null)
-const loading = ref(false)
-const apiTests = ref({
-  blocks: { 
-    status: '检测中...', 
-    color: 'warning', 
-    variant: 'soft' 
-  },
-  initDb: { 
-    status: '未测试', 
-    color: 'neutral', 
-    variant: 'soft' 
-  }
-})
+// 使用系统 store
+const systemStore = useSystemStore()
 
-// 计算属性
-const dataStatus = computed(() => {
-  if (!stats.value) {
-    return { text: '加载中...', color: 'warning' }
-  }
-  if (stats.value.visualBlocks > 0) {
-    return { text: '已完成', color: 'success' }
-  }
-  return { text: '未初始化', color: 'error' }
-})
-
-// 获取统计数据
-async function fetchStats() {
-  try {
-    const response = await $fetch('/api/blocks')
-    const visualBlocks = response.blocks?.length || 0
-    
-    stats.value = {
-      visualBlocks,
-      regions: 0, // 暂时设为0，可以后续添加API
-      annotations: 0,
-      regionBlocks: 0
-    }
-    
-    // 更新API测试状态
-    apiTests.value.blocks = {
-      status: '✅ 正常',
-      color: 'success',
-      variant: 'solid'
-    }
-  } catch (error) {
-    console.error('Failed to fetch stats:', error)
-    apiTests.value.blocks = {
-      status: '❌ 失败',
-      color: 'error',
-      variant: 'solid'
-    }
-  }
-}
+// 从 store 获取响应式数据
+const { stats, isLoading: loading, apiTests, dataStatus } = storeToRefs(systemStore)
 
 // 刷新统计
 async function refreshStats() {
-  loading.value = true
-  await fetchStats()
-  loading.value = false
+  await systemStore.refreshStats()
 }
 
 // 初始化数据
 async function initializeData() {
-  const toast = useToast()
-  
   // 使用 Nuxt UI 的确认对话框（如果可用）或原生确认
   if (!confirm('确定要重新初始化数据吗？这将清空现有数据。')) {
     return
   }
   
-  loading.value = true
-  try {
-    const response = await $fetch('/api/init-db', { method: 'POST' })
-    if (response.success) {
-      toast.add({
-        title: '数据初始化成功！',
-        description: `插入了 ${response.count} 个视觉块。`,
-        color: 'success'
-      })
-      await fetchStats()
-      apiTests.value.initDb = {
-        status: '✅ 成功',
-        color: 'success',
-        variant: 'solid'
-      }
-    } else {
-      toast.add({
-        title: '初始化失败',
-        description: response.message,
-        color: 'error'
-      })
-      apiTests.value.initDb = {
-        status: '❌ 失败',
-        color: 'error',
-        variant: 'solid'
-      }
-    }
-  } catch (error) {
-    console.error('Failed to initialize data:', error)
-    toast.add({
-      title: '初始化错误',
-      description: '请检查控制台错误信息。',
-      color: 'error'
-    })
-    apiTests.value.initDb = {
-      status: '❌ 错误',
-      color: 'error',
-      variant: 'solid'
-    }
-  }
-  loading.value = false
+  await systemStore.initializeDatabase()
 }
 
 // 页面加载时获取统计数据
 onMounted(() => {
-  fetchStats()
+  systemStore.fetchStats()
 })
 </script>
 

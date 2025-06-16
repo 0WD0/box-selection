@@ -25,15 +25,15 @@
             </UButton>
             
             <UAlert 
-              v-if="message" 
-              :color="messageType" 
+              v-if="latestMessage.message" 
+              :color="latestMessage.messageType" 
               class="mt-4"
             >
               <template #title>
-                {{ messageType === 'success' ? '成功' : messageType === 'error' ? '错误' : '信息' }}
+                {{ latestMessage.messageType === 'success' ? '成功' : latestMessage.messageType === 'error' ? '错误' : '信息' }}
               </template>
               <template #description>
-                {{ message }}
+                {{ latestMessage.message }}
               </template>
             </UAlert>
           </div>
@@ -43,15 +43,15 @@
         <InfoCard title="数据库状态" icon="📈">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="text-center p-4 bg-gray-50 rounded-lg">
-              <div class="text-2xl font-bold text-blue-600">{{ stats.totalBlocks }}</div>
+              <div class="text-2xl font-bold text-blue-600">{{ adminStats.totalBlocks }}</div>
               <div class="text-sm text-gray-600">视觉块总数</div>
             </div>
             <div class="text-center p-4 bg-gray-50 rounded-lg">
-              <div class="text-2xl font-bold text-green-600">{{ stats.totalRegions }}</div>
+              <div class="text-2xl font-bold text-green-600">{{ adminStats.totalRegions }}</div>
               <div class="text-sm text-gray-600">区域总数</div>
             </div>
             <div class="text-center p-4 bg-gray-50 rounded-lg">
-              <div class="text-2xl font-bold text-purple-600">{{ stats.totalAnnotations }}</div>
+              <div class="text-2xl font-bold text-purple-600">{{ adminStats.totalAnnotations }}</div>
               <div class="text-sm text-gray-600">批注总数</div>
             </div>
           </div>
@@ -82,54 +82,42 @@
 </template>
 
 <script setup lang="ts">
+import { useSystemStore } from '~/stores'
+
 // 设置页面标题
 useHead({
   title: '数据库管理面板'
 })
 
-const loading = ref(false)
-const message = ref('')
-const messageType = ref<'success' | 'error' | 'info' | 'warning'>('info')
+// 使用系统 store
+const systemStore = useSystemStore()
 
-const stats = ref({
-  totalBlocks: 0,
-  totalRegions: 0,
-  totalAnnotations: 0
+// 从 store 获取响应式数据
+const { stats, isLoading: loading, notifications } = storeToRefs(systemStore)
+
+// 计算属性 - 从系统统计中获取数据
+const adminStats = computed(() => ({
+  totalBlocks: stats.value?.visualBlocks || 0,
+  totalRegions: stats.value?.regions || 0,
+  totalAnnotations: stats.value?.annotations || 0
+}))
+
+// 最新的消息
+const latestMessage = computed(() => {
+  const latest = notifications.value[notifications.value.length - 1]
+  return latest ? {
+    message: latest.description || latest.title,
+    messageType: latest.type
+  } : { message: '', messageType: 'info' as const }
 })
 
 // 初始化数据库
 const initializeDatabase = async () => {
-  loading.value = true
-  message.value = ''
-  
-  try {
-    const response = await $fetch('/api/init-db', {
-      method: 'POST'
-    })
-    
-    message.value = response.message
-    messageType.value = response.success ? 'success' : 'error'
-    await loadStats()
-  } catch (error: any) {
-    message.value = `初始化失败: ${error.data?.message || error.message}`
-    messageType.value = 'error'
-  } finally {
-    loading.value = false
-  }
-}
-
-// 加载统计数据
-const loadStats = async () => {
-  try {
-    const blocksResponse = await $fetch('/api/blocks')
-    stats.value.totalBlocks = blocksResponse.blocks.length
-  } catch (error) {
-    console.error('加载统计数据失败:', error)
-  }
+  await systemStore.initializeDatabase()
 }
 
 // 页面加载时获取统计数据
 onMounted(() => {
-  loadStats()
+  systemStore.fetchStats()
 })
 </script> 
