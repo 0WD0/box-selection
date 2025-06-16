@@ -109,18 +109,35 @@
           <div class="space-y-3">
             <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div class="flex items-center gap-3">
-                <UIcon name="i-heroicons-server" class="w-5 h-5 text-gray-600" />
+                <UIcon name="i-heroicons-chart-bar" class="w-5 h-5 text-gray-600" />
                 <div>
-                  <span class="font-mono text-sm font-medium">GET /api/blocks</span>
-                  <p class="text-xs text-gray-500">获取视觉块数据</p>
+                  <span class="font-mono text-sm font-medium">GET /api/stats</span>
+                  <p class="text-xs text-gray-500">获取统计数据</p>
                 </div>
               </div>
               <UBadge 
-                :color="apiTests.blocks.color" 
-                :variant="apiTests.blocks.variant"
+                :color="apiTests.stats.color" 
+                :variant="apiTests.stats.variant"
                 size="sm"
               >
-                {{ apiTests.blocks.status }}
+                {{ apiTests.stats.status }}
+              </UBadge>
+            </div>
+            
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div class="flex items-center gap-3">
+                <UIcon name="i-heroicons-squares-2x2" class="w-5 h-5 text-gray-600" />
+                <div>
+                  <span class="font-mono text-sm font-medium">GET /api/regions</span>
+                  <p class="text-xs text-gray-500">获取区域数据</p>
+                </div>
+              </div>
+              <UBadge 
+                :color="apiTests.regions.color" 
+                :variant="apiTests.regions.variant"
+                size="sm"
+              >
+                {{ apiTests.regions.status }}
               </UBadge>
             </div>
             

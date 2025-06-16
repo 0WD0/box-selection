@@ -19,7 +19,8 @@ export interface SystemState {
   
   // API 状态
   apiTests: {
-    blocks: APIStatus
+    stats: APIStatus
+    regions: APIStatus
     initDb: APIStatus
   }
   
@@ -42,7 +43,12 @@ export const useSystemStore = defineStore('system', {
     stats: null,
     
     apiTests: {
-      blocks: { 
+      stats: { 
+        status: '检测中...', 
+        color: 'warning', 
+        variant: 'soft' 
+      },
+      regions: { 
         status: '检测中...', 
         color: 'warning', 
         variant: 'soft' 
@@ -74,11 +80,12 @@ export const useSystemStore = defineStore('system', {
     
     // 系统健康状态
     systemHealth: (state) => {
-      const blocksOk = state.apiTests.blocks.color === 'success'
+      const statsOk = state.apiTests.stats.color === 'success'
+      const regionsOk = state.apiTests.regions.color === 'success'
       const dbOk = state.apiTests.initDb.color === 'success'
       
-      if (blocksOk && dbOk) return 'healthy'
-      if (blocksOk || dbOk) return 'warning'
+      if (statsOk && regionsOk && dbOk) return 'healthy'
+      if (statsOk || regionsOk || dbOk) return 'warning'
       return 'error'
     },
     
@@ -93,25 +100,28 @@ export const useSystemStore = defineStore('system', {
       this.error = null
       
       try {
-        const response: any = await $fetch('/api/blocks')
-        const visualBlocks = response.blocks?.length || 0
+        // 使用新的统计API
+        const response: any = await $fetch('/api/stats')
         
-        this.stats = {
-          visualBlocks,
-          regions: 0, // 可以后续添加API
-          annotations: 0,
-          regionBlocks: 0
+        if (response.success) {
+          this.stats = response.stats
+        } else {
+          throw new Error('Failed to get stats')
         }
         
         // 更新API测试状态
-        this.apiTests.blocks = {
+        this.apiTests.stats = {
           status: '✅ 正常',
           color: 'success',
           variant: 'solid'
         }
+        
+        // 测试区域API
+        await this.testRegionsAPI()
+        
       } catch (error) {
         console.error('Failed to fetch stats:', error)
-        this.apiTests.blocks = {
+        this.apiTests.stats = {
           status: '❌ 失败',
           color: 'error',
           variant: 'solid'
@@ -204,11 +214,35 @@ export const useSystemStore = defineStore('system', {
       this.notifications = []
     },
 
+    // 测试区域API
+    async testRegionsAPI() {
+      try {
+        await $fetch('/api/regions')
+        this.apiTests.regions = {
+          status: '✅ 正常',
+          color: 'success',
+          variant: 'solid'
+        }
+      } catch (error) {
+        console.error('Failed to test regions API:', error)
+        this.apiTests.regions = {
+          status: '❌ 失败',
+          color: 'error',
+          variant: 'solid'
+        }
+      }
+    },
+
     // 重置状态
     reset() {
       this.stats = null
       this.apiTests = {
-        blocks: { 
+        stats: { 
+          status: '检测中...', 
+          color: 'warning', 
+          variant: 'soft' 
+        },
+        regions: { 
           status: '检测中...', 
           color: 'warning', 
           variant: 'soft' 
