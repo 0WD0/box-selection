@@ -57,27 +57,29 @@ async function processData(data: MiddleJsonData) {
 export default defineEventHandler(async (event) => {
   console.log('🔄 init-db.post.ts: 收到初始化请求')
   
-  try {
-    // 在服务器端需要使用完整URL
-    const baseUrl = process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:3000' 
-      : `https://${getHeader(event, 'host') || 'localhost'}`
-    const dataUrl = `${baseUrl}/data/middle.json`
+    try {
+    // 从assets目录读取文件
+    console.log('📡 尝试从assets目录读取middle.json')
     
-    console.log(`📡 尝试读取: ${dataUrl}`)
-    const response = await fetch(dataUrl)
+    // 在服务器端直接读取assets文件
+    const fs = await import('fs')
+    const path = await import('path')
     
-    if (!response.ok) {
-      console.error(`❌ 无法读取数据文件: HTTP ${response.status} ${response.statusText}`)
-              return {
-          success: false,
-          message: `Failed to load MinerU data: HTTP ${response.status} ${response.statusText}. Please ensure public/data/middle.json exists and is accessible.`,
-          url: dataUrl
-        }
+    const filePath = path.resolve('./assets/data/middle.json')
+    console.log(`📂 文件路径: ${filePath}`)
+    
+    if (!fs.existsSync(filePath)) {
+      console.error(`❌ 文件不存在: ${filePath}`)
+      return {
+        success: false,
+        message: `MinerU data file not found at ${filePath}. Please ensure assets/data/middle.json exists.`,
+        path: filePath
+      }
     }
     
+    const fileContent = fs.readFileSync(filePath, 'utf-8')
     console.log('✅ 成功读取数据文件')
-    const data: MiddleJsonData = await response.json()
+    const data: MiddleJsonData = JSON.parse(fileContent)
     
     // 使用processData函数处理数据
     return await processData(data)

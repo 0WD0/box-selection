@@ -68,7 +68,7 @@ box-selection/
 ├── utils/
 │   ├── pdf-parser.ts              # PDF解析工具
 │   └── geometry.ts                # 几何计算工具
-├── public/data/
+├── assets/data/
 │   ├── origin.pdf                 # 原始PDF文件
 │   └── middle.json                # MinerU布局数据
 └── nuxt.config.ts                 # Nuxt配置
@@ -230,9 +230,13 @@ CREATE TABLE annotations (
 
 ### PDF配置
 
-在`public/data/`目录下放置以下文件：
+在`assets/data/`目录下放置以下文件：
 - `origin.pdf`: 原始PDF文件
 - `middle.json`: MinerU处理后的布局数据
+
+文件通过以下API访问：
+- PDF文件: `/api/pdf`
+- JSON数据: 服务器端直接读取
 
 ### 数据库配置
 

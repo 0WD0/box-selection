@@ -35,6 +35,6 @@ logs
 *.backup
 *.dump
 
-public/data
-
 .wrangler
+
+assets/

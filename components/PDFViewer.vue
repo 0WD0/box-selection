@@ -484,7 +484,7 @@ const loadPdf = async () => {
     const pdfjsLib = await import('pdfjs-dist')
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
-    const response = await fetch('/data/origin.pdf')
+    const response = await fetch('/api/pdf')
     const arrayBuffer = await response.arrayBuffer()
     
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
