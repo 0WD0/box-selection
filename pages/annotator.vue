@@ -499,8 +499,8 @@ const createRegion = async () => {
   await annotationStore.createRegion()
 }
 
-const deleteRegion = (regionId: number) => {
-  annotationStore.deleteRegion(regionId)
+const deleteRegion = async (regionId: number) => {
+  await annotationStore.deleteRegion(regionId)
 }
 
 const updateAnnotation = (regionId: number, annotation: string) => {

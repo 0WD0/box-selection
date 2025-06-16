@@ -264,13 +264,27 @@ export const useAnnotationStore = defineStore('annotation', {
       }
     },
 
-    deleteRegion(regionId: number) {
-      const index = this.regions.findIndex(r => r.id === regionId)
-      if (index > -1) {
-        this.regions.splice(index, 1)
-        
-        // 从服务器删除
-        this.deleteRegionFromServer(regionId)
+    async deleteRegion(regionId: number) {
+      // 1. 从当前页面区域缓存中删除（立即更新UI）
+      const currentPageIndex = this.currentPageRegions.findIndex(r => r.id === regionId)
+      if (currentPageIndex > -1) {
+        this.currentPageRegions.splice(currentPageIndex, 1)
+      }
+      
+      // 2. 从全局区域列表中删除
+      const globalIndex = this.regions.findIndex(r => r.id === regionId)
+      if (globalIndex > -1) {
+        this.regions.splice(globalIndex, 1)
+      }
+      
+      // 3. 从服务器删除
+      try {
+        await this.deleteRegionFromServer(regionId)
+        console.log(`✅ [Store] 成功删除区域 #${regionId}`)
+      } catch (error) {
+        console.error(`❌ [Store] 删除区域 #${regionId} 失败:`, error)
+        // 如果服务器删除失败，可以考虑恢复本地状态
+        // 这里暂时保持本地删除状态
       }
     },
 

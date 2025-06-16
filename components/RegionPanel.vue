@@ -8,7 +8,7 @@
       <div v-for="region in regions" :key="region.id" class="border border-gray-200 rounded-lg p-4">
         <div class="flex items-center justify-between mb-3">
           <h4 class="font-medium">区域 #{{ region.id }}</h4>
-          <button @click="$emit('delete-region', region.id)" class="text-red-500 hover:text-red-700">
+          <button @click="handleDeleteRegion(region.id)" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50">
             🗑️
           </button>
         </div>
@@ -40,7 +40,7 @@ interface Emits {
 }
 
 defineProps<Props>()
-defineEmits<Emits>()
+const emit = defineEmits<Emits>()
 
 const getBlockCount = (region: any) => {
   if (region.blocks && Array.isArray(region.blocks)) {
@@ -50,5 +50,11 @@ const getBlockCount = (region: any) => {
     return region.blockIds.length
   }
   return 0
+}
+
+const handleDeleteRegion = (regionId: number) => {
+  if (confirm('确定要删除这个区域吗？此操作不可恢复。')) {
+    emit('delete-region', regionId)
+  }
 }
 </script> 
