@@ -20,6 +20,7 @@ export interface AnnotationState {
   
   // 区域和批注
   regions: Region[]
+  currentPageRegions: Region[] // 🎯 当前页面的区域缓存
   
   // 选择框
   selectionBox: Bbox | null
@@ -38,6 +39,7 @@ export const useAnnotationStore = defineStore('annotation', {
     currentBlock: null,
     
     regions: [],
+    currentPageRegions: [],
     
     selectionBox: null,
     isSelecting: false,
@@ -66,7 +68,14 @@ export const useAnnotationStore = defineStore('annotation', {
     },
     
     // 是否可以创建区域
-    canCreateRegion: (state) => state.selectedBlocks.length > 0
+    canCreateRegion: (state) => state.selectedBlocks.length > 0,
+    
+    // 🎯 获取当前页面的区域（从缓存中）
+    getCurrentPageRegions: (state) => {
+      return (currentPage: number) => {
+        return state.currentPageRegions || []
+      }
+    }
   },
 
   actions: {
@@ -294,14 +303,46 @@ export const useAnnotationStore = defineStore('annotation', {
 
     async loadRegions() {
       try {
+        console.log('🔄 [Store] 开始加载区域数据...')
         const response: any = await $fetch('/api/regions')
-        this.regions = response.regions.map((r: any) => ({
-          ...r,
-          createdAt: new Date(r.createdAt),
-          updatedAt: new Date(r.updatedAt)
-        }))
+        console.log('📥 [Store] 收到区域数据响应:', response)
+        
+        if (response.success && response.regions) {
+          this.regions = response.regions.map((r: any) => ({
+            ...r,
+            createdAt: new Date(r.createdAt),
+            updatedAt: new Date(r.updatedAt)
+          }))
+          console.log(`✅ [Store] 成功加载 ${this.regions.length} 个区域:`, this.regions)
+        } else {
+          console.warn('⚠️ [Store] 区域数据响应格式异常:', response)
+        }
       } catch (error) {
-        console.error('加载区域失败:', error)
+        console.error('❌ [Store] 加载区域失败:', error)
+      }
+    },
+
+    // 🎯 加载当前页面的区域
+    async loadCurrentPageRegions(pageNum: number) {
+      try {
+        console.log(`🔄 [Store] 开始加载第 ${pageNum} 页的区域...`)
+        const response: any = await $fetch(`/api/regions/page/${pageNum}`)
+        console.log(`📥 [Store] 收到第 ${pageNum} 页区域响应:`, response)
+        
+        if (response.success && response.regions) {
+          this.currentPageRegions = response.regions.map((r: any) => ({
+            ...r,
+            createdAt: new Date(r.createdAt),
+            updatedAt: new Date(r.updatedAt)
+          }))
+          console.log(`✅ [Store] 成功加载第 ${pageNum} 页的 ${this.currentPageRegions.length} 个区域`)
+        } else {
+          this.currentPageRegions = []
+          console.log(`📄 [Store] 第 ${pageNum} 页没有区域`)
+        }
+      } catch (error) {
+        console.error(`❌ [Store] 加载第 ${pageNum} 页区域失败:`, error)
+        this.currentPageRegions = []
       }
     },
 

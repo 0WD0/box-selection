@@ -155,9 +155,12 @@ const drawBlocks = () => {
 
 // 🏛️ 绘制区域
 const drawRegions = (ctx: CanvasRenderingContext2D) => {
-  if (!props.regions.length) return
+  if (!props.regions.length) {
+    console.log('🏛️ [Canvas] 没有区域需要绘制')
+    return
+  }
   
-  console.log(`🏛️ [Canvas] 绘制 ${props.regions.length} 个区域`)
+  console.log(`🏛️ [Canvas] 绘制 ${props.regions.length} 个区域:`, props.regions)
   
   props.regions.forEach((region, index) => {
     const coords = convertCoordinates(region.bbox)

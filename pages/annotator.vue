@@ -72,7 +72,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
-import type { Bbox } from '~/utils/pdf-parser'
 import { usePDFStore, useAnnotationStore, useUIStore } from '~/stores'
 import { perfMonitor, measureAsyncOperation } from '~/utils/performance-monitor'
 
@@ -100,7 +99,10 @@ const currentPageBlocks = computed(() => pdfStore.currentPageBlocks)
 const selectedBlocks = computed(() => annotationStore.selectedBlocks)
 const highlightedBlock = computed(() => annotationStore.highlightedBlock)
 const currentBlock = computed(() => annotationStore.currentBlock)
-const regions = computed(() => annotationStore.regions)
+// 🎯 只显示当前页面的区域
+const regions = computed(() => {
+  return annotationStore.getCurrentPageRegions(pdfStore.currentPage)
+})
 const isSelecting = computed(() => annotationStore.isSelecting)
 const selectionBox = computed(() => annotationStore.selectionBox)
 const selectionMode = computed(() => annotationStore.selectionMode)
@@ -118,8 +120,8 @@ onMounted(async () => {
   // 加载 PDF 数据
   await pdfStore.loadPDFData()
   
-  // 加载区域数据
-  await annotationStore.loadRegions()
+  // 加载当前页面的区域数据
+  await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
   
   // 设置键盘导航
   setupKeyboardNavigation()
@@ -208,12 +210,19 @@ const nextPageWithDebounce = async () => {
     const renderEndTime = performance.now()
     console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
     
+    // 🎯 加载当前页面的区域
+    const regionStartTime = performance.now()
+    await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
+    const regionEndTime = performance.now()
+    console.log(`🏛️ [Annotator] 区域加载耗时: ${(regionEndTime - regionStartTime).toFixed(2)}ms`)
+    
     const totalTime = performance.now() - totalStartTime
     console.log(`✅ [Annotator] 下一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
     
     // 🎯 性能分析总结
     console.log(`📊 [性能分析] Store更新: ${(storeEndTime - totalStartTime).toFixed(2)}ms (${((storeEndTime - totalStartTime) / totalTime * 100).toFixed(1)}%)`)
     console.log(`📊 [性能分析] PDF渲染: ${(renderEndTime - renderStartTime).toFixed(2)}ms (${((renderEndTime - renderStartTime) / totalTime * 100).toFixed(1)}%)`)
+    console.log(`📊 [性能分析] 区域加载: ${(regionEndTime - regionStartTime).toFixed(2)}ms (${((regionEndTime - regionStartTime) / totalTime * 100).toFixed(1)}%)`)
   }, 50) // 50ms 防抖
 }
 
@@ -240,6 +249,12 @@ const prevPageWithDebounce = async () => {
     const renderEndTime = performance.now()
     console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
     
+    // 🎯 加载当前页面的区域
+    const regionStartTime = performance.now()
+    await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
+    const regionEndTime = performance.now()
+    console.log(`🏛️ [Annotator] 区域加载耗时: ${(regionEndTime - regionStartTime).toFixed(2)}ms`)
+    
     const totalTime = performance.now() - startTime
     console.log(`✅ [Annotator] 上一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
   }, 50) // 50ms 防抖
@@ -262,6 +277,9 @@ const nextPage = async () => {
   const renderEndTime = performance.now()
   console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
   
+  // 🎯 加载当前页面的区域
+  await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
+  
   const totalTime = performance.now() - startTime
   console.log(`✅ [Annotator] 下一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
 }
@@ -282,6 +300,9 @@ const prevPage = async () => {
   const renderEndTime = performance.now()
   console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
   
+  // 🎯 加载当前页面的区域
+  await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
+  
   const totalTime = performance.now() - startTime
   console.log(`✅ [Annotator] 上一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
 }
@@ -301,6 +322,9 @@ const goToPage = async (page: number) => {
         const renderTime = performance.now()
         await pdfViewer.value.renderPage(pdfStore.currentPage)
         console.log(`🎨 [Annotator] PDF 渲染耗时: ${(performance.now() - renderTime).toFixed(2)}ms`)
+        
+        // 🎯 加载当前页面的区域
+        await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
       } catch (error) {
         console.error('❌ [Annotator] 渲染页面失败:', error)
       }
