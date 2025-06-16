@@ -23,4 +23,16 @@ logs
 .env.*
 !.env.example
 
+# Database files
+db/sqlite.db
+db/sqlite.db-*
+db/migrations/
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.backup
+*.dump
+
 public/data

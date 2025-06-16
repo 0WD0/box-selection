@@ -35,12 +35,30 @@
             <span class="feature-icon">✅</span>
             <span>生产就绪，稳定可靠</span>
           </div>
+          <div class="feature-item">
+            <span class="feature-icon">🆕</span>
+            <span>基于视觉块的批注系统</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🎯</span>
+            <span>支持鼠标框选和键盘控制</span>
+          </div>
         </div>
         
         <div class="action-section">
           <NuxtLink to="/read-all" class="main-btn">
             <span class="btn-icon">📖</span>
             开始使用 PDF 查看器
+          </NuxtLink>
+          
+          <NuxtLink to="/annotator" class="main-btn annotator-btn">
+            <span class="btn-icon">✏️</span>
+            视觉块批注系统
+          </NuxtLink>
+          
+          <NuxtLink to="/admin" class="main-btn admin-btn">
+            <span class="btn-icon">⚙️</span>
+            数据库管理
           </NuxtLink>
         </div>
       </div>
@@ -146,6 +164,10 @@ h1 {
 
 .action-section {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
 }
 
 .main-btn {
@@ -170,6 +192,24 @@ h1 {
 
 .btn-icon {
   font-size: 1.5em;
+}
+
+.annotator-btn {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+}
+
+.annotator-btn:hover {
+  box-shadow: 0 12px 35px rgba(40, 167, 69, 0.4);
+}
+
+.admin-btn {
+  background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+  box-shadow: 0 8px 25px rgba(111, 66, 193, 0.3);
+}
+
+.admin-btn:hover {
+  box-shadow: 0 12px 35px rgba(111, 66, 193, 0.4);
 }
 
 .tech-info {
