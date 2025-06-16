@@ -73,7 +73,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { usePDFStore, useAnnotationStore, useUIStore } from '~/stores'
-import { perfMonitor, measureAsyncOperation } from '~/utils/performance-monitor'
 
 // 设置页面标题
 useHead({
@@ -126,14 +125,6 @@ onMounted(async () => {
   // 设置键盘导航
   setupKeyboardNavigation()
   
-  // 添加性能监控快捷键
-  window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'p') {
-      e.preventDefault()
-      perfMonitor.printAllStats()
-      perfMonitor.detectBrowserOptimization()
-    }
-  })
 })
 
 // 加载PDF数据 - 现在使用 store 的方法
@@ -165,64 +156,12 @@ const nextPageWithDebounce = async () => {
     clearTimeout(pageChangeTimeout)
   }
   
-  // 立即更新页码，但延迟渲染
-  console.log(`➡️ [Annotator] 开始下一页操作`)
-  const totalStartTime = performance.now()
-  
-  console.log(`📖 [Annotator] 从第 ${pdfStore.currentPage} 页切换到第 ${pdfStore.currentPage + 1} 页`)
-  
-  // 🔍 详细监控 Store 操作
-  console.log(`🏪 [Store] 开始详细性能分析`)
-  
-  // 1. 监控 nextPage 调用
-  const nextPageStart = performance.now()
   pdfStore.nextPage()
-  const nextPageEnd = performance.now()
-  console.log(`🏪 [Store] nextPage() 耗时: ${(nextPageEnd - nextPageStart).toFixed(2)}ms`)
-  
-  // 2. 监控 currentPageBlocks getter
-  const blocksStart = performance.now()
-  const blocks = pdfStore.currentPageBlocks
-  const blocksEnd = performance.now()
-  console.log(`🏪 [Store] currentPageBlocks getter 耗时: ${(blocksEnd - blocksStart).toFixed(2)}ms, 块数量: ${blocks.length}`)
-  
-  // 3. 监控其他 computed 属性
-  const computedStart = performance.now()
-  const page = pdfStore.currentPage
-  const total = pdfStore.totalPages
-  const overlay = pdfStore.overlayDimensions
-  const computedEnd = performance.now()
-  console.log(`🏪 [Store] 其他 computed 属性耗时: ${(computedEnd - computedStart).toFixed(2)}ms`)
-  
-  // 4. 监控 Vue 响应式更新
-  const reactiveStart = performance.now()
-  await nextTick() // 等待 Vue 响应式更新完成
-  const reactiveEnd = performance.now()
-  console.log(`⚡ [Vue] 响应式更新耗时: ${(reactiveEnd - reactiveStart).toFixed(2)}ms`)
-  
-  const storeEndTime = performance.now()
-  console.log(`🏪 [Store] 总状态更新耗时: ${(storeEndTime - totalStartTime).toFixed(2)}ms`)
   
   // 防抖渲染
   pageChangeTimeout = setTimeout(async () => {
-    const renderStartTime = performance.now()
     await pdfViewer.value.renderPage(pdfStore.currentPage)
-    const renderEndTime = performance.now()
-    console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
-    
-    // 🎯 加载当前页面的区域
-    const regionStartTime = performance.now()
     await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
-    const regionEndTime = performance.now()
-    console.log(`🏛️ [Annotator] 区域加载耗时: ${(regionEndTime - regionStartTime).toFixed(2)}ms`)
-    
-    const totalTime = performance.now() - totalStartTime
-    console.log(`✅ [Annotator] 下一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
-    
-    // 🎯 性能分析总结
-    console.log(`📊 [性能分析] Store更新: ${(storeEndTime - totalStartTime).toFixed(2)}ms (${((storeEndTime - totalStartTime) / totalTime * 100).toFixed(1)}%)`)
-    console.log(`📊 [性能分析] PDF渲染: ${(renderEndTime - renderStartTime).toFixed(2)}ms (${((renderEndTime - renderStartTime) / totalTime * 100).toFixed(1)}%)`)
-    console.log(`📊 [性能分析] 区域加载: ${(regionEndTime - regionStartTime).toFixed(2)}ms (${((regionEndTime - regionStartTime) / totalTime * 100).toFixed(1)}%)`)
   }, 50) // 50ms 防抖
 }
 
@@ -232,108 +171,41 @@ const prevPageWithDebounce = async () => {
     clearTimeout(pageChangeTimeout)
   }
   
-  console.log(`⬅️ [Annotator] 开始上一页操作`)
-  const startTime = performance.now()
-  
-  console.log(`📖 [Annotator] 从第 ${pdfStore.currentPage} 页切换到第 ${pdfStore.currentPage - 1} 页`)
-  
-  const storeStartTime = performance.now()
   pdfStore.prevPage()
-  const storeEndTime = performance.now()
-  console.log(`🏪 [Annotator] Store 状态更新耗时: ${(storeEndTime - storeStartTime).toFixed(2)}ms`)
   
   // 防抖渲染
   pageChangeTimeout = setTimeout(async () => {
-    const renderStartTime = performance.now()
     await pdfViewer.value.renderPage(pdfStore.currentPage)
-    const renderEndTime = performance.now()
-    console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
-    
-    // 🎯 加载当前页面的区域
-    const regionStartTime = performance.now()
     await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
-    const regionEndTime = performance.now()
-    console.log(`🏛️ [Annotator] 区域加载耗时: ${(regionEndTime - regionStartTime).toFixed(2)}ms`)
-    
-    const totalTime = performance.now() - startTime
-    console.log(`✅ [Annotator] 上一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
   }, 50) // 50ms 防抖
 }
 
 // 原有的翻页方法保持不变，用于键盘导航
 const nextPage = async () => {
-  console.log(`➡️ [Annotator] 开始下一页操作`)
-  const startTime = performance.now()
-  
-  console.log(`📖 [Annotator] 从第 ${pdfStore.currentPage} 页切换到第 ${pdfStore.currentPage + 1} 页`)
-  
-  const storeStartTime = performance.now()
   pdfStore.nextPage()
-  const storeEndTime = performance.now()
-  console.log(`🏪 [Annotator] Store 状态更新耗时: ${(storeEndTime - storeStartTime).toFixed(2)}ms`)
-  
-  const renderStartTime = performance.now()
   await pdfViewer.value.renderPage(pdfStore.currentPage)
-  const renderEndTime = performance.now()
-  console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
-  
-  // 🎯 加载当前页面的区域
   await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
-  
-  const totalTime = performance.now() - startTime
-  console.log(`✅ [Annotator] 下一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
 }
 
 const prevPage = async () => {
-  console.log(`⬅️ [Annotator] 开始上一页操作`)
-  const startTime = performance.now()
-  
-  console.log(`📖 [Annotator] 从第 ${pdfStore.currentPage} 页切换到第 ${pdfStore.currentPage - 1} 页`)
-  
-  const storeStartTime = performance.now()
   pdfStore.prevPage()
-  const storeEndTime = performance.now()
-  console.log(`🏪 [Annotator] Store 状态更新耗时: ${(storeEndTime - storeStartTime).toFixed(2)}ms`)
-  
-  const renderStartTime = performance.now()
   await pdfViewer.value.renderPage(pdfStore.currentPage)
-  const renderEndTime = performance.now()
-  console.log(`🎨 [Annotator] PDF 渲染耗时: ${(renderEndTime - renderStartTime).toFixed(2)}ms`)
-  
-  // 🎯 加载当前页面的区域
   await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
-  
-  const totalTime = performance.now() - startTime
-  console.log(`✅ [Annotator] 上一页操作完成，总耗时: ${totalTime.toFixed(2)}ms`)
 }
 
 const goToPage = async (page: number) => {
-  console.log(`🎯 [Annotator] 跳转到第 ${page} 页`)
-  const startTime = performance.now()
-  
   if (page >= 1 && page <= totalPages.value) {
-    const storeTime = performance.now()
     pdfStore.goToPage(page)
-    console.log(`🏪 [Annotator] Store 状态更新耗时: ${(performance.now() - storeTime).toFixed(2)}ms`)
     
     // 等待 PDF 查看器渲染完成
     if (pdfViewer.value) {
       try {
-        const renderTime = performance.now()
         await pdfViewer.value.renderPage(pdfStore.currentPage)
-        console.log(`🎨 [Annotator] PDF 渲染耗时: ${(performance.now() - renderTime).toFixed(2)}ms`)
-        
-        // 🎯 加载当前页面的区域
         await annotationStore.loadCurrentPageRegions(pdfStore.currentPage)
       } catch (error) {
-        console.error('❌ [Annotator] 渲染页面失败:', error)
+        console.error('渲染页面失败:', error)
       }
     }
-    
-    const totalTime = performance.now()
-    console.log(`✅ [Annotator] 跳转到第 ${page} 页完成，总耗时: ${(totalTime - startTime).toFixed(2)}ms`)
-  } else {
-    console.log(`⚠️ [Annotator] 页码 ${page} 超出范围 (1-${totalPages.value})`)
   }
 }
 

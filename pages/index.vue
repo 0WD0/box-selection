@@ -116,7 +116,7 @@
                 </div>
                 <div class="flex items-center gap-2 text-sm text-gray-600">
                   <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-500" />
-                  <span>性能分析工具</span>
+                  <span>系统状态监控</span>
                 </div>
               </div>
             </div>
