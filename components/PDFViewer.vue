@@ -626,9 +626,10 @@ onUnmounted(() => {
 }
 
 .canvas-wrapper {
-  display: inline-block;
+  display: block;
   transition: transform 0.1s ease-out;
   transform-origin: 0 0;
+  line-height: 0; /* 消除行高造成的间距 */
 }
 
 .pdf-canvas {
