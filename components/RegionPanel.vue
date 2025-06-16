@@ -11,7 +11,7 @@
           <button @click="handleDeleteRegion(region.id)" class="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50">
             🗑️
           </button>
-        </div>
+		</div>
         
         <textarea 
           :value="region.annotation || ''"
