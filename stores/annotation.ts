@@ -190,8 +190,8 @@ export const useAnnotationStore = defineStore('annotation', {
       const centerOffsetY = (overlayDimensions.height - renderHeight) / 2
 
       return {
-        x: bbox.x * scale + overlayDimensions.offsetX + centerOffsetX,
-        y: bbox.y * scale + overlayDimensions.offsetY + centerOffsetY,
+        x: bbox.x * scale + centerOffsetX,
+        y: bbox.y * scale + centerOffsetY,
         width: bbox.width * scale,
         height: bbox.height * scale
       }

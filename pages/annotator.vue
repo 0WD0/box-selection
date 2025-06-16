@@ -344,9 +344,11 @@ const startSelection = (event: MouseEvent) => {
   const rect = (event.currentTarget as HTMLElement)?.getBoundingClientRect()
   if (!rect) return
 
+  // 考虑画布偏移
+  const canvasOffset = pdfStore.canvasOffset
   const start = {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top
+    x: event.clientX - rect.left - canvasOffset.x,
+    y: event.clientY - rect.top - canvasOffset.y
   }
   
   annotationStore.startSelection(start)
@@ -358,9 +360,11 @@ const updateSelection = (event: MouseEvent) => {
   const rect = (event.currentTarget as HTMLElement)?.getBoundingClientRect()
   if (!rect) return
 
+  // 考虑画布偏移
+  const canvasOffset = pdfStore.canvasOffset
   const current = {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top
+    x: event.clientX - rect.left - canvasOffset.x,
+    y: event.clientY - rect.top - canvasOffset.y
   }
 
   annotationStore.updateSelection(current)

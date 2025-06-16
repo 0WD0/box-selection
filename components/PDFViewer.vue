@@ -3,20 +3,26 @@
        @mousedown="handleMouseDown" 
        @mousemove="handleMouseMove" 
        @mouseup="handleMouseUp"
-       @click="handleClick">
-    <!-- PDF 渲染层 -->
-    <canvas ref="pdfCanvas" class="pdf-canvas"></canvas>
+       @click="handleClick"
+       @dblclick="handleDoubleClick"
+       @contextmenu="handleContextMenu">
     
-    <!-- 视觉块渲染层 -->
-    <canvas ref="blocksCanvas" class="blocks-canvas"></canvas>
+    <!-- 画布包装器，应用偏移变换 -->
+    <div class="canvas-wrapper" :style="canvasTransformStyle">
+      <!-- PDF 渲染层 -->
+      <canvas ref="pdfCanvas" class="pdf-canvas"></canvas>
+      
+      <!-- 视觉块渲染层 -->
+      <canvas ref="blocksCanvas" class="blocks-canvas"></canvas>
+    </div>
     
     <!-- 交互层（仅用于框选框显示） -->
     <div class="interaction-layer">
       <!-- 选择框 -->
       <div v-if="selectionBox" class="selection-box" 
            :style="{
-             left: selectionBox.x + 'px',
-             top: selectionBox.y + 'px',
+             left: (selectionBox.x + pdfStore.canvasOffset.x) + 'px',
+             top: (selectionBox.y + pdfStore.canvasOffset.y) + 'px',
              width: selectionBox.width + 'px',
              height: selectionBox.height + 'px'
            }">
@@ -40,6 +46,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, markRaw, computed, watch, onUnmounted } from 'vue'
+import { usePDFStore } from '~/stores'
 
 interface Props {
   blocks: any[]
@@ -67,6 +74,9 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+// 使用 PDF store
+const pdfStore = usePDFStore()
+
 const pdfDoc = ref<any>(null)
 const pdfCanvas = ref<HTMLCanvasElement>()
 const blocksCanvas = ref<HTMLCanvasElement>()
@@ -80,8 +90,18 @@ const hoveredBlock = ref<any>(null)
 const tooltipPosition = ref({ x: 0, y: 0 })
 const mousePosition = ref({ x: 0, y: 0 })
 
+// 🖱️ 画布拖拽状态
+const isPanning = ref(false)
+const panStartPosition = ref({ x: 0, y: 0 })
+const panStartScroll = ref({ x: 0, y: 0 })
+
 // 视觉块坐标缓存
 const blocksWithCoords = ref<any[]>([])
+
+// 🖱️ 画布变换样式
+const canvasTransformStyle = computed(() => ({
+  transform: `translate(${pdfStore.canvasOffset.x}px, ${pdfStore.canvasOffset.y}px)`
+}))
 
 // 🎨 块类型颜色映射
 const getBlockTypeColor = (type: string) => {
@@ -117,8 +137,8 @@ const convertCoordinates = (bbox: { x: number, y: number, width: number, height:
   const centerOffsetY = (props.overlayDimensions.height - renderHeight) / 2
 
   return {
-    left: bbox.x * scale + props.overlayDimensions.offsetX + centerOffsetX,
-    top: bbox.y * scale + props.overlayDimensions.offsetY + centerOffsetY,
+    left: bbox.x * scale + centerOffsetX,
+    top: bbox.y * scale + centerOffsetY,
     width: bbox.width * scale,
     height: bbox.height * scale
   }
@@ -317,21 +337,43 @@ const handleMouseDown = (event: MouseEvent) => {
     y: event.clientY - rect.top
   }
   
-  // 检查是否点击了视觉块（用于记录，但不阻止框选）
-  const clickedBlock = findBlockAtPosition(mousePosition.value.x, mousePosition.value.y)
-  if (clickedBlock) {
-    console.log('点击了视觉块:', clickedBlock.id)
+  // 检查是否是中键拖拽
+  if (event.button === 1) { // 中键
+    event.preventDefault()
+    isPanning.value = true
+    panStartPosition.value = {
+      x: event.clientX,
+      y: event.clientY
+    }
+    panStartScroll.value = {
+      x: pdfStore.canvasOffset.x,
+      y: pdfStore.canvasOffset.y
+    }
+    
+    // 改变鼠标样式
+    if (pdfContainer.value) {
+      pdfContainer.value.style.cursor = 'grabbing'
+    }
+    return
   }
   
-  // 检查是否点击了区域（用于记录，但不阻止框选）
-  const clickedRegion = findRegionAtPosition(mousePosition.value.x, mousePosition.value.y)
-  if (clickedRegion) {
-    console.log('点击了区域:', clickedRegion.id)
+  // 左键：检查是否点击了视觉块（用于记录，但不阻止框选）
+  if (event.button === 0) {
+    const clickedBlock = findBlockAtPosition(mousePosition.value.x, mousePosition.value.y)
+    if (clickedBlock) {
+      console.log('点击了视觉块:', clickedBlock.id)
+    }
+    
+    // 检查是否点击了区域（用于记录，但不阻止框选）
+    const clickedRegion = findRegionAtPosition(mousePosition.value.x, mousePosition.value.y)
+    if (clickedRegion) {
+      console.log('点击了区域:', clickedRegion.id)
+    }
+    
+    // 开始框选
+    isSelecting.value = true
+    emit('selection-start', event)
   }
-  
-  // 总是开始框选（不管是否点击了块或区域）
-  isSelecting.value = true
-  emit('selection-start', event)
 }
 
 const handleMouseMove = (event: MouseEvent) => {
@@ -341,6 +383,19 @@ const handleMouseMove = (event: MouseEvent) => {
   mousePosition.value = {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top
+  }
+  
+  // 处理画布拖拽
+  if (isPanning.value) {
+    const deltaX = event.clientX - panStartPosition.value.x
+    const deltaY = event.clientY - panStartPosition.value.y
+    
+    // 使用store更新画布偏移
+    pdfStore.setCanvasOffset(
+      panStartScroll.value.x + deltaX,
+      panStartScroll.value.y + deltaY
+    )
+    return
   }
   
   if (isSelecting.value) {
@@ -362,7 +417,9 @@ const handleMouseMove = (event: MouseEvent) => {
     
     // 更新鼠标样式
     if (pdfContainer.value) {
-      if (block || region) {
+      if (isPanning.value) {
+        pdfContainer.value.style.cursor = 'grabbing'
+      } else if (block || region) {
         pdfContainer.value.style.cursor = 'pointer'
       } else {
         pdfContainer.value.style.cursor = 'crosshair'
@@ -372,6 +429,17 @@ const handleMouseMove = (event: MouseEvent) => {
 }
 
 const handleMouseUp = (event: MouseEvent) => {
+  // 结束画布拖拽
+  if (isPanning.value) {
+    isPanning.value = false
+    // 恢复鼠标样式
+    if (pdfContainer.value) {
+      pdfContainer.value.style.cursor = 'crosshair'
+    }
+    return
+  }
+  
+  // 结束框选
   if (isSelecting.value) {
     isSelecting.value = false
     emit('selection-end', event)
@@ -380,6 +448,20 @@ const handleMouseUp = (event: MouseEvent) => {
 
 const handleClick = (event: MouseEvent) => {
   // 处理单击事件
+}
+
+const handleDoubleClick = (event: MouseEvent) => {
+  // 双击重置画布偏移
+  if (event.button === 0) { // 左键双击
+    pdfStore.resetCanvasOffset()
+  }
+}
+
+const handleContextMenu = (event: MouseEvent) => {
+  // 阻止鼠标中键产生的右键菜单
+  if (isPanning.value) {
+    event.preventDefault()
+  }
 }
 
 // 监听属性变化，重新绘制
@@ -491,8 +573,41 @@ defineExpose({
   updateOverlayDimensions
 })
 
+// 全局鼠标事件处理（处理拖拽时鼠标移出容器的情况）
+const handleGlobalMouseMove = (event: MouseEvent) => {
+  if (isPanning.value) {
+    const deltaX = event.clientX - panStartPosition.value.x
+    const deltaY = event.clientY - panStartPosition.value.y
+    
+    // 使用store更新画布偏移
+    pdfStore.setCanvasOffset(
+      panStartScroll.value.x + deltaX,
+      panStartScroll.value.y + deltaY
+    )
+  }
+}
+
+const handleGlobalMouseUp = (event: MouseEvent) => {
+  if (isPanning.value) {
+    isPanning.value = false
+    if (pdfContainer.value) {
+      pdfContainer.value.style.cursor = 'crosshair'
+    }
+  }
+}
+
 onMounted(() => {
   loadPdf()
+  
+  // 添加全局事件监听
+  document.addEventListener('mousemove', handleGlobalMouseMove)
+  document.addEventListener('mouseup', handleGlobalMouseUp)
+})
+
+onUnmounted(() => {
+  // 清理全局事件监听
+  document.removeEventListener('mousemove', handleGlobalMouseMove)
+  document.removeEventListener('mouseup', handleGlobalMouseUp)
 })
 </script>
 
@@ -503,6 +618,17 @@ onMounted(() => {
   overflow: auto;
   background: #f5f5f5;
   cursor: crosshair;
+  user-select: none; /* 防止拖拽时选择文本 */
+}
+
+.pdf-container:active {
+  cursor: grabbing;
+}
+
+.canvas-wrapper {
+  display: inline-block;
+  transition: transform 0.1s ease-out;
+  transform-origin: 0 0;
 }
 
 .pdf-canvas {

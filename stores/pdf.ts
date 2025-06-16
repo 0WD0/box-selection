@@ -22,6 +22,12 @@ export interface PDFState {
     offsetY: number
   }
   
+  // 🖱️ 画布偏移状态
+  canvasOffset: {
+    x: number
+    y: number
+  }
+  
   // 加载状态
   isLoading: boolean
   error: string | null
@@ -46,6 +52,12 @@ export const usePDFStore = defineStore('pdf', {
       height: 0,
       offsetX: 0,
       offsetY: 0
+    },
+    
+    // 🖱️ 画布偏移状态
+    canvasOffset: {
+      x: 0,
+      y: 0
     },
     
     isLoading: false,
@@ -201,6 +213,22 @@ export const usePDFStore = defineStore('pdf', {
       this.setScale(1.0)
     },
 
+    // 🖱️ 画布偏移控制
+    setCanvasOffset(x: number, y: number) {
+      this.canvasOffset.x = x
+      this.canvasOffset.y = y
+    },
+
+    updateCanvasOffset(deltaX: number, deltaY: number) {
+      this.canvasOffset.x += deltaX
+      this.canvasOffset.y += deltaY
+    },
+
+    resetCanvasOffset() {
+      this.canvasOffset.x = 0
+      this.canvasOffset.y = 0
+    },
+
     // 🚀 优化的覆盖层管理
     updateOverlayDimensions(dimensions: PDFState['overlayDimensions']) {
       const startTime = performance.now()
@@ -291,6 +319,7 @@ export const usePDFStore = defineStore('pdf', {
       this.mineruData = null
       this.visualBlocks = []
       this.overlayDimensions = { width: 0, height: 0, offsetX: 0, offsetY: 0 }
+      this.canvasOffset = { x: 0, y: 0 } // 🖱️ 重置画布偏移
       this.isLoading = false
       this.error = null
       
