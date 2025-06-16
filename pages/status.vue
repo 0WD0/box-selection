@@ -55,7 +55,7 @@
           <StatCard
             label="数据状态"
             :value="dataStatus.text"
-            icon="i-heroicons-database"
+            icon="i-heroicons-check-circle"
             color="orange"
             subtitle="数据库已初始化"
           />
