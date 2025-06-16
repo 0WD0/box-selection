@@ -215,12 +215,13 @@ const updateSelection = (event: MouseEvent) => {
 const endSelection = () => {
   if (!isSelecting.value || !selectionBox.value) return
 
-  // 查找与选择框相交的视觉块
-  const intersectingBlocks = currentPageBlocks.value.filter(block => {
-    // 这里需要实现坐标转换和相交检测
-    // 简化处理，实际需要根据具体的坐标转换逻辑
-    return true // 临时返回true
-  })
+  // 使用 store 中的相交检测方法
+  const intersectingBlocks = annotationStore.findIntersectingBlocks(
+    currentPageBlocks.value,
+    overlayDimensions.value,
+    mineruData.value,
+    pageNum.value
+  )
 
   // 添加到选择列表
   intersectingBlocks.forEach(block => {

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import type { Bbox } from '~/utils/pdf-parser'
+import { isRectIntersect } from '~/utils/pdf-parser'
 
 export interface Region {
   id: number
@@ -134,6 +135,57 @@ export const useAnnotationStore = defineStore('annotation', {
       this.isSelecting = false
       this.selectionStart = null
       this.selectionBox = null
+    },
+
+    // 检测选择框与视觉块的相交
+    findIntersectingBlocks(blocks: any[], overlayDimensions: any, mineruData: any, currentPage: number) {
+      if (!this.selectionBox || !blocks.length) return []
+
+      return blocks.filter(block => {
+        // 将视觉块坐标转换为屏幕坐标
+        const blockScreenCoords = this.convertBlockToScreenCoords(
+          block.bbox, 
+          overlayDimensions, 
+          mineruData, 
+          currentPage
+        )
+        if (!blockScreenCoords) return false
+        
+        // 使用相交检测函数
+        return isRectIntersect(blockScreenCoords, this.selectionBox!)
+      })
+    },
+
+    // 坐标转换函数：将PDF坐标转换为屏幕坐标
+    convertBlockToScreenCoords(bbox: any, overlayDimensions: any, mineruData: any, currentPage: number) {
+      if (overlayDimensions.width === 0 || !mineruData) return null
+
+      // 获取当前页面的页面信息
+      const currentPageInfo = mineruData.pdf_info[currentPage - 1]
+      if (!currentPageInfo) return null
+
+      // 从MinerU数据中获取页面尺寸
+      const [pageWidth, pageHeight] = currentPageInfo.page_size
+
+      // 计算缩放比例
+      const scaleX = overlayDimensions.width / pageWidth
+      const scaleY = overlayDimensions.height / pageHeight
+      const scale = Math.min(scaleX, scaleY)
+
+      // 计算实际渲染尺寸
+      const renderWidth = pageWidth * scale
+      const renderHeight = pageHeight * scale
+
+      // 计算居中偏移
+      const centerOffsetX = (overlayDimensions.width - renderWidth) / 2
+      const centerOffsetY = (overlayDimensions.height - renderHeight) / 2
+
+      return {
+        x: bbox.x * scale + overlayDimensions.offsetX + centerOffsetX,
+        y: bbox.y * scale + overlayDimensions.offsetY + centerOffsetY,
+        width: bbox.width * scale,
+        height: bbox.height * scale
+      }
     },
 
     toggleSelectionMode() {
