@@ -31,7 +31,7 @@
 - **PDF处理**: PDF.js + MinerU布局分析
 - **数据库**: SQLite + Drizzle ORM
 - **UI组件**: Nuxt UI + Tailwind CSS
-- **部署**: Cloudflare Workers
+- **部署**: NuxtHub
 
 ## 📁 项目结构
 

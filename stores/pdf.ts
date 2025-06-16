@@ -264,28 +264,21 @@ export const usePDFStore = defineStore('pdf', {
       this.error = null
       
       try {
+        // 🔄 从数据库加载visual blocks（包含真实ID）
+        const visualBlocksResponse: any = await $fetch('/api/visual-blocks')
+        if (!visualBlocksResponse.success) {
+          throw new Error('Failed to load visual blocks from database')
+        }
+        
+        // 🔄 仍需要加载middle.json获取页面信息
         const response = await fetch('/data/middle.json')
         const data: MiddleJsonData = await response.json()
         
-        // 解析视觉块数据
-        const { parseMiddleJsonToBlocks } = await import('~/utils/pdf-parser')
-        const blocks = parseMiddleJsonToBlocks(data)
-        
-        // 🚀 预处理数据，减少运行时计算
-        const processedBlocks = blocks.map((block, index) => {
-          const bbox = JSON.parse(block.bbox)
-          return {
-            ...block,
-            id: index + 1,
-            bbox: {
-              x: bbox[0],
-              y: bbox[1], 
-              width: bbox[2],
-              height: bbox[3]
-            },
-            pageInfo: data.pdf_info[block.pageIndex]
-          }
-        })
+        // 🚀 使用数据库中的真实ID，而不是数组索引
+        const processedBlocks = visualBlocksResponse.visualBlocks.map((block: any) => ({
+          ...block,
+          pageInfo: data.pdf_info[block.pageIndex] // 添加页面信息
+        }))
         
         // 🚀 使用 $patch 批量更新，减少响应式触发
         this.$patch({
