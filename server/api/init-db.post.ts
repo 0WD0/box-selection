@@ -58,26 +58,25 @@ export default defineEventHandler(async (event) => {
   console.log('🔄 init-db.post.ts: 收到初始化请求')
   
     try {
-    // 直接从assets目录读取JSON文件（简化方案）
-    console.log('📡 尝试从assets目录读取middle.json')
+    // 通过内部API调用获取数据
+    console.log('📡 通过API调用获取middle.json')
     
-    const fs = await import('fs')
-    const path = await import('path')
+    const response = await $fetch('/api/files/middle.json')
     
-    const filePath = path.resolve('./assets/data/middle.json')
-    
-    if (!fs.existsSync(filePath)) {
-      console.error(`❌ 文件不存在: ${filePath}`)
-      return {
-        success: false,
-        message: `MinerU data file not found at ${filePath}. Please ensure assets/data/middle.json exists.`,
-        path: filePath
-      }
+    // 处理不同类型的响应
+    let jsonText: string
+    if (typeof response === 'string') {
+      jsonText = response
+    } else if (response && typeof response === 'object' && 'type' in response && response.type === 'Buffer') {
+      // 处理 Buffer 类型
+      const buffer = Buffer.from((response as any).data)
+      jsonText = buffer.toString('utf-8')
+    } else {
+      throw new Error('Unexpected response type from API')
     }
     
-    const fileContent = fs.readFileSync(filePath, 'utf-8')
-    console.log('✅ 成功读取数据文件')
-    const data: MiddleJsonData = JSON.parse(fileContent)
+    const data: MiddleJsonData = JSON.parse(jsonText)
+    console.log('✅ 成功通过API获取数据文件')
     
     // 使用processData函数处理数据
     return await processData(data)

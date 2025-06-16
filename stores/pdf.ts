@@ -271,7 +271,7 @@ export const usePDFStore = defineStore('pdf', {
         }
         
         // 🔄 仍需要加载middle.json获取页面信息
-        const response = await fetch('/data/middle.json')
+        const response = await fetch('/api/files/middle.json')
         const data: MiddleJsonData = await response.json()
         
         // 🚀 使用数据库中的真实ID，而不是数组索引
