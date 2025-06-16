@@ -1,29 +1,56 @@
-# 📄 数据库设置与配置指南
+# 📄 NuxtHub 数据库设置与配置指南
 
 ## 📋 概述
 
-本项目使用 SQLite 作为数据库，配合 Drizzle ORM 进行数据管理。SQLite 是一个轻量级的嵌入式数据库，非常适合客户端应用和小到中型的Web应用。
+本项目使用 NuxtHub 的内置数据库功能，基于 Cloudflare D1（SQLite）和 Drizzle ORM 进行数据管理。NuxtHub 提供了开发和生产环境的无缝数据库体验。
 
-## 🗄️ 数据库文件位置
+## 🗄️ NuxtHub 数据库文件结构
 
 ```
 box-selection/
-├── db/
-│   ├── sqlite.db          # SQLite数据库文件
-│   ├── schema.ts          # 数据库模式定义
-│   ├── index.ts           # 数据库连接配置
-│   └── migrations/        # 数据库迁移文件
-└── drizzle.config.ts      # Drizzle配置文件
+├── server/
+│   ├── database/
+│   │   ├── schema.ts          # 数据库模式定义
+│   │   └── migrations/        # 数据库迁移文件
+│   ├── utils/
+│   │   └── drizzle.ts         # Drizzle 工具函数
+│   ├── tasks/
+│   │   └── seed.ts            # 数据库种子任务
+│   └── api/                   # API 端点
+├── nuxt.config.ts             # Nuxt 配置（包含 hub 配置）
+└── drizzle.config.ts          # Drizzle 配置文件
 ```
 
-### 📁 为什么将数据库文件放在 `db/` 目录？
+### 📁 为什么使用 NuxtHub 的目录结构？
 
-1. **组织性**: 保持项目根目录整洁
-2. **安全性**: 便于在部署时排除敏感文件
-3. **可维护性**: 所有数据库相关文件集中管理
-4. **版本控制**: 便于配置 `.gitignore` 规则
+1. **标准化**: 遵循 NuxtHub 的最佳实践
+2. **自动化**: 迁移和部署自动处理
+3. **开发体验**: 内置 DevTools 支持
+4. **云原生**: 为 Cloudflare 部署优化
 
-## ⚙️ Drizzle ORM 配置
+## ⚙️ NuxtHub 配置
+
+### `nuxt.config.ts`
+
+```typescript
+export default defineNuxtConfig({
+  modules: [
+    '@nuxthub/core'
+  ],
+  
+  // NuxtHub 配置
+  hub: {
+    database: true
+  },
+
+  // Nitro 配置（用于任务支持）
+  nitro: {
+    experimental: {
+      tasks: true
+    }
+  }
+})
+```
 
 ### `drizzle.config.ts`
 
@@ -31,51 +58,49 @@ box-selection/
 import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({
-  schema: './db/schema.ts',        // 模式定义文件位置
-  out: './db/migrations',          // 迁移文件输出目录
-  dialect: 'turso',                // 使用Turso dialect（兼容SQLite）
-  dbCredentials: {
-    url: 'file:./db/sqlite.db'     // 数据库文件路径
-  }
+  dialect: 'sqlite',
+  schema: './server/database/schema.ts',
+  out: './server/database/migrations'
 })
 ```
 
 ### 配置说明
 
+- **hub.database**: 启用 NuxtHub 数据库功能
 - **schema**: 指向数据库模式定义文件
 - **out**: 生成的迁移文件存放目录
-- **dialect**: 使用 'turso' 以获得更好的SQLite支持
-- **url**: 数据库文件的相对路径
+- **dialect**: 使用 'sqlite' 方言
 
-## 🔌 数据库连接配置
+## 🔌 NuxtHub 数据库连接
 
-### `db/index.ts`
+### `server/utils/drizzle.ts`
 
 ```typescript
-import { createClient } from '@libsql/client'
-import { drizzle } from 'drizzle-orm/libsql'
-import * as schema from './schema'
+import { drizzle } from 'drizzle-orm/d1'
+export { sql, eq, and, or } from 'drizzle-orm'
 
-// 创建LibSQL客户端
-const client = createClient({
-  url: 'file:./db/sqlite.db'
-})
+import * as schema from '../database/schema'
 
-// 创建Drizzle数据库实例
-export const db = drizzle(client, { schema })
+export const tables = schema
 
-// 导出所有模式
-export * from './schema'
+export function useDrizzle() {
+  return drizzle(hubDatabase(), { schema })
+}
+
+// 导出类型
+export type VisualBlock = typeof schema.visualBlocks.$inferSelect
+export type InsertVisualBlock = typeof schema.visualBlocks.$inferInsert
+// ... 其他类型
 ```
 
 ### 技术选择说明
 
-#### 为什么选择 LibSQL 而不是 better-sqlite3？
+#### 为什么选择 NuxtHub？
 
-1. **兼容性**: LibSQL 与 Cloudflare 等现代部署平台兼容性更好
-2. **无原生依赖**: 避免了 Node.js 原生模块编译问题
-3. **现代化**: 支持更现代的 JavaScript 特性
-4. **部署友好**: 更容易在各种环境中部署
+1. **一体化解决方案**: 数据库、存储、缓存等功能集成
+2. **开发体验**: 内置 DevTools，可视化数据库管理
+3. **自动部署**: 与 Cloudflare 无缝集成
+4. **零配置**: 开发和生产环境自动切换
 
 ## 📊 数据库模式设计
 
@@ -135,35 +160,44 @@ CREATE TABLE annotations (
 
 ## 🚀 常用操作命令
 
-### 初始化数据库
+### 数据库迁移
 
 ```bash
 # 生成迁移文件
-npx drizzle-kit generate
+npm run db:generate
 
-# 推送模式到数据库
-npx drizzle-kit push
-
-# 查看当前模式
-npx drizzle-kit introspect
+# 查看 Drizzle Studio
+npm run db:studio
 ```
 
-### 开发环境管理
+### 数据库种子
 
 ```bash
-# 重置数据库（删除并重新创建）
-rm -f db/sqlite.db
-npx drizzle-kit push
+# 启动开发服务器
+npm run dev
 
-# 查看数据库内容（需要安装sqlite3）
-sqlite3 db/sqlite.db ".tables"
-sqlite3 db/sqlite.db ".schema"
+# 在 Nuxt DevTools 中运行 db:seed 任务
+# 或者使用 NuxtHub CLI（如果已安装）
+npx nuxthub database migrations list
+```
 
-# 导出数据
-sqlite3 db/sqlite.db ".dump" > backup.sql
+### NuxtHub CLI 命令
 
-# 导入数据
-sqlite3 db/sqlite.db < backup.sql
+```bash
+# 安装 NuxtHub CLI
+npm i -g nuxthub
+
+# 查看数据库状态
+nuxthub database migrations list
+
+# 本地环境
+nuxthub database migrations list --local
+
+# 预览环境
+nuxthub database migrations list --preview
+
+# 生产环境
+nuxthub database migrations list --production
 ```
 
 ## 🔒 环境配置

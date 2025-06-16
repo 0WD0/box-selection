@@ -64,60 +64,115 @@
 
     <!-- 控制面板 -->
     <div class="control-panel">
-      <div class="page-controls">
-        <button @click="prevPage" :disabled="pageNum <= 1">上一页</button>
-        <span>第 {{ pageNum }} 页 / 共 {{ totalPages }} 页</span>
-        <button @click="nextPage" :disabled="pageNum >= totalPages">下一页</button>
-      </div>
+      <!-- 页面控制 -->
+      <UCard class="mb-4">
+        <div class="flex items-center justify-between">
+          <UButton @click="prevPage" :disabled="pageNum <= 1" variant="outline" size="sm">
+            <UIcon name="i-heroicons-chevron-left" class="w-4 h-4" />
+            上一页
+          </UButton>
+          <span class="text-sm font-medium">第 {{ pageNum }} 页 / 共 {{ totalPages }} 页</span>
+          <UButton @click="nextPage" :disabled="pageNum >= totalPages" variant="outline" size="sm">
+            下一页
+            <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+          </UButton>
+        </div>
+      </UCard>
 
-      <div class="selection-info">
-        <h3>选中的视觉块: {{ selectedBlocks.length }}</h3>
-        <div v-if="selectedBlocks.length > 0" class="selected-blocks-list">
-          <div v-for="blockId in selectedBlocks" :key="blockId" class="selected-block-item">
-            <span>块 #{{ blockId }}</span>
-            <button @click="removeFromSelection(blockId)">移除</button>
+      <!-- 选择信息 -->
+      <UCard class="mb-4">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold">选中的视觉块: {{ selectedBlocks.length }}</h3>
+            <UBadge v-if="selectedBlocks.length > 0" color="primary">{{ selectedBlocks.length }}</UBadge>
+          </div>
+        </template>
+        
+        <div v-if="selectedBlocks.length > 0" class="space-y-2 mb-4">
+          <div v-for="blockId in selectedBlocks" :key="blockId" class="flex items-center justify-between p-2 bg-gray-50 rounded">
+            <span class="text-sm">块 #{{ blockId }}</span>
+            <UButton @click="removeFromSelection(blockId)" color="error" variant="ghost" size="xs">
+              <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+            </UButton>
           </div>
         </div>
         
-        <div class="action-buttons">
-          <button @click="createRegion" :disabled="selectedBlocks.length === 0" class="btn-primary">
+        <div class="flex gap-2">
+          <UButton @click="createRegion" :disabled="selectedBlocks.length === 0" color="primary">
+            <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
             创建区域
-          </button>
-          <button @click="clearSelection" :disabled="selectedBlocks.length === 0">
+          </UButton>
+          <UButton @click="clearSelection" :disabled="selectedBlocks.length === 0" variant="outline">
+            <UIcon name="i-heroicons-x-mark" class="w-4 h-4 mr-1" />
             清除选择
-          </button>
+          </UButton>
         </div>
-      </div>
+      </UCard>
 
-      <div class="regions-list">
-        <h3>已创建的区域: {{ regions.length }}</h3>
-        <div v-for="region in regions" :key="region.id" class="region-item">
-          <div class="region-header">
-            <span>区域 #{{ region.id }}</span>
-            <button @click="deleteRegion(region.id)" class="btn-danger">删除</button>
+      <!-- 区域列表 -->
+      <UCard class="mb-4">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold">已创建的区域: {{ regions.length }}</h3>
+            <UBadge v-if="regions.length > 0" color="success">{{ regions.length }}</UBadge>
           </div>
-          <div class="region-annotation">
-            <textarea 
-              v-model="region.annotation" 
-              placeholder="添加批注..."
-              @change="updateAnnotation(region.id, region.annotation)">
-            </textarea>
+        </template>
+        
+        <div v-if="regions.length === 0" class="text-center py-4 text-gray-500">
+          暂无区域，请先选择视觉块创建区域
+        </div>
+        
+        <div v-else class="space-y-3">
+          <UCard v-for="region in regions" :key="region.id" class="border border-gray-200">
+            <template #header>
+              <div class="flex items-center justify-between">
+                <span class="font-medium">区域 #{{ region.id }}</span>
+                <UButton @click="deleteRegion(region.id)" color="error" variant="ghost" size="xs">
+                  <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+                  删除
+                </UButton>
+              </div>
+            </template>
+            
+            <div class="space-y-3">
+              <UTextarea 
+                v-model="region.annotation" 
+                placeholder="添加批注..."
+                @change="updateAnnotation(region.id, region.annotation)"
+                :rows="2"
+              />
+              <div class="text-xs text-gray-500">
+                包含 {{ region.blockIds.length }} 个视觉块
+              </div>
+            </div>
+          </UCard>
+        </div>
+      </UCard>
+
+      <!-- 键盘帮助 -->
+      <UCard>
+        <template #header>
+          <h4 class="text-base font-semibold">键盘控制</h4>
+        </template>
+        
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2">
+            <UKbd>h</UKbd><span>左移</span>
+            <UKbd>j</UKbd><span>下移</span>
+            <UKbd>k</UKbd><span>上移</span>
+            <UKbd>l</UKbd><span>右移</span>
           </div>
-          <div class="region-blocks">
-            <small>包含 {{ region.blockIds.length }} 个视觉块</small>
+          <div class="flex items-center gap-2">
+            <UKbd>v</UKbd><span>切换选择模式</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <UKbd>Space</UKbd><span>切换当前块选择</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <UKbd>Esc</UKbd><span>退出选择模式</span>
           </div>
         </div>
-      </div>
-
-      <div class="keyboard-help">
-        <h4>键盘控制:</h4>
-        <ul>
-          <li><kbd>h</kbd> 左移 | <kbd>j</kbd> 下移 | <kbd>k</kbd> 上移 | <kbd>l</kbd> 右移</li>
-          <li><kbd>v</kbd> 切换选择模式</li>
-          <li><kbd>Space</kbd> 切换当前块选择</li>
-          <li><kbd>Esc</kbd> 退出选择模式</li>
-        </ul>
-      </div>
+      </UCard>
     </div>
   </div>
 </template>

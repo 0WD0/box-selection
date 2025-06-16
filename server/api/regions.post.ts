@@ -1,12 +1,10 @@
-import { db, regions, regionBlocks } from '~/db'
-
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const { name, rootBlockId, bbox, blockIds } = body
 
   try {
     // 创建区域
-    const [region] = await db.insert(regions).values({
+    const [region] = await useDrizzle().insert(tables.regions).values({
       name,
       rootBlockId,
       bbox: JSON.stringify(bbox)
@@ -16,7 +14,7 @@ export default defineEventHandler(async (event) => {
     if (blockIds && blockIds.length > 0) {
       await Promise.all(
         blockIds.map((blockId: number) =>
-          db.insert(regionBlocks).values({
+          useDrizzle().insert(tables.regionBlocks).values({
             regionId: region.id,
             blockId
           })

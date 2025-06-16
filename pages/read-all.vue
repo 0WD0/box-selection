@@ -1,88 +1,186 @@
 <template>
-  <div>
-    <!-- 使用 ClientOnly 避免 SSR 问题 -->
-    <ClientOnly>
-      <div class="container">
-        <h1>📄 原生 PDF.js 查看器</h1>
+  <AppLayout>
+    <template #header>
+      <AppHeader 
+        title="PDF 查看器" 
+        icon="📄"
+        subtitle="原生 PDF.js + markRaw 优化"
+      >
+        <template #actions>
+          <PageControls
+            :current-page="pageNum"
+            :total-pages="totalPages"
+            :disabled="loading || !pdfDoc"
+            @prev="prevPage"
+            @next="nextPage"
+            @goto="goToPage"
+          />
+          
+          <ZoomControls
+            :scale="scale"
+            :disabled="loading"
+            @zoom-in="zoomIn"
+            @zoom-out="zoomOut"
+          />
 
-        <div class="back-nav">
-          <NuxtLink to="/" class="back-btn">← 返回首页</NuxtLink>
-        </div>
-
-        <div class="info-section">
-          <h3>🔧 原生PDF.js + markRaw修复</h3>
-          <p>使用原生PDF.js库，结合 <code>markRaw()</code> 解决响应式包装问题。</p>
-        </div>
-
-        <!-- 翻页控制栏 -->
-        <div class="page-controls">
-          <button @click="prevPage" :disabled="pageNum <= 1 || loading" class="nav-btn prev-btn">
-            上一页
-          </button>
-
-          <div class="page-info">
-            <input v-model.number="pageNum" type="number" :min="1" :max="totalPages" :disabled="!pdfDoc || loading"
-              class="page-input" @change="goToPage">
-            <span class="page-separator">/</span>
-            <span class="total-pages">{{ totalPages }}</span>
-          </div>
-
-          <button @click="nextPage" :disabled="pageNum >= totalPages || loading" class="nav-btn next-btn">
-            下一页
-          </button>
-
-          <div class="zoom-controls">
-            <button @click="zoomOut" :disabled="loading" class="zoom-btn">
-              缩小
-            </button>
-            <span class="zoom-info">{{ Math.round(scale * 100) }}%</span>
-            <button @click="zoomIn" :disabled="loading" class="zoom-btn">
-              放大
-            </button>
-          </div>
-
-          <a :href="pdfUrl" download="document.pdf" class="download-btn">
+          <UButton :href="pdfUrl" download="document.pdf" color="primary" size="sm">
+            <UIcon name="i-heroicons-arrow-down-tray" class="w-4 h-4 mr-1" />
             下载
-          </a>
-        </div>
+          </UButton>
+        </template>
+      </AppHeader>
+    </template>
 
-        <div class="status" v-if="currentStep">
-          <p>{{ currentStep }}</p>
-          <p v-if="error" class="error">{{ error }}</p>
-        </div>
+    <ClientOnly>
+      <div class="flex">
+        <!-- PDF 预览区域 -->
+        <div class="flex-1 p-6">
+          <!-- 状态提示 -->
+          <UAlert v-if="currentStep" color="info" class="mb-4" variant="soft">
+            <template #description>
+              {{ currentStep }}
+            </template>
+          </UAlert>
 
-        <div class="canvas-section">
-          <canvas ref="pdfCanvas" class="pdf-canvas"></canvas>
-          <div v-if="loading" class="loading-overlay">
-            <div class="spinner"></div>
-            <p>{{ currentStep }}</p>
-          </div>
-        </div>
+          <UAlert v-if="error" color="error" class="mb-4">
+            <template #title>加载错误</template>
+            <template #description>
+              {{ error }}
+            </template>
+          </UAlert>
 
-        <div class="overlay-section">
-          <h3>🎨 覆盖层功能</h3>
-          <div class="overlay-container" :style="{ width: canvasWidth + 'px', height: canvasHeight + 'px' }">
-            <div v-for="overlay in overlays" :key="overlay.id" class="overlay-item" :style="{
-              left: overlay.x + 'px',
-              top: overlay.y + 'px',
-              width: overlay.width + 'px',
-              height: overlay.height + 'px'
-            }" @click="removeOverlay(overlay.id)">
-              {{ overlay.text }}
+          <!-- PDF 画布容器 -->
+          <div class="flex justify-center">
+            <div class="relative bg-white rounded-lg shadow-lg overflow-hidden">
+              <canvas 
+                ref="pdfCanvas" 
+                class="block max-w-full h-auto"
+                :style="{ maxHeight: 'calc(100vh - 200px)' }"
+              ></canvas>
+              
+              <!-- 加载遮罩 -->
+              <div v-if="loading" class="absolute inset-0 bg-white/90 flex items-center justify-center">
+                <div class="text-center">
+                  <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary-500 mx-auto mb-3" />
+                  <p class="text-sm text-gray-600">{{ currentStep || '正在加载...' }}</p>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="overlay-controls">
-            <button @click="addRandomOverlay" :disabled="!canvasWidth" class="btn btn-info">
-              添加覆盖层
-            </button>
-            <button @click="clearOverlays" :disabled="overlays.length === 0" class="btn btn-warning">
-              清除所有
-            </button>
-          </div>
         </div>
+
+        <!-- 侧边栏 -->
+        <AppSidebar>
+          <!-- 文档信息 -->
+          <InfoCard title="文档信息" icon="📋">
+            <div class="space-y-3 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-600">总页数:</span>
+                <span class="font-medium">{{ totalPages }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">当前页:</span>
+                <span class="font-medium">{{ pageNum }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">缩放比例:</span>
+                <span class="font-medium">{{ Math.round(scale * 100) }}%</span>
+              </div>
+            </div>
+          </InfoCard>
+
+          <!-- 技术特性 -->
+          <InfoCard title="技术特性" icon="🔧">
+            <div class="space-y-3 text-sm text-gray-600">
+              <div class="flex items-start gap-2">
+                <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>原生 PDF.js 渲染引擎</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>markRaw() 响应式优化</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>支持缩放和翻页</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <span>覆盖层注释功能</span>
+              </div>
+            </div>
+          </InfoCard>
+
+          <!-- 覆盖层功能 -->
+          <InfoCard title="覆盖层" icon="🎨" :badge="overlays.length" badge-color="primary">
+            <div class="space-y-4">
+              <div class="flex gap-2">
+                <UButton 
+                  @click="addRandomOverlay" 
+                  :disabled="!canvasWidth" 
+                  color="primary" 
+                  size="sm"
+                  class="flex-1"
+                >
+                  <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
+                  添加注释
+                </UButton>
+                <UButton 
+                  @click="clearOverlays" 
+                  :disabled="overlays.length === 0" 
+                  color="error" 
+                  variant="outline"
+                  size="sm"
+                >
+                  <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+                </UButton>
+              </div>
+
+              <!-- 覆盖层预览 -->
+              <div v-if="canvasWidth" class="relative border border-gray-200 rounded-lg bg-gray-50" 
+                   :style="{ 
+                     width: '100%', 
+                     height: Math.min(canvasHeight * (240 / canvasWidth), 300) + 'px',
+                     minHeight: '120px'
+                   }">
+                <div 
+                  v-for="overlay in overlays" 
+                  :key="overlay.id" 
+                  class="absolute bg-yellow-200/80 border border-yellow-400 rounded cursor-pointer hover:bg-yellow-300/80 transition-colors"
+                  :style="{
+                    left: (overlay.x * (240 / canvasWidth)) + 'px',
+                    top: (overlay.y * (Math.min(canvasHeight * (240 / canvasWidth), 300) / canvasHeight)) + 'px',
+                    width: (overlay.width * (240 / canvasWidth)) + 'px',
+                    height: (overlay.height * (Math.min(canvasHeight * (240 / canvasWidth), 300) / canvasHeight)) + 'px'
+                  }" 
+                  @click="removeOverlay(overlay.id)"
+                >
+                  <div class="text-xs p-1 truncate">{{ overlay.text }}</div>
+                </div>
+                <div v-if="overlays.length === 0" class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                  暂无注释
+                </div>
+              </div>
+
+              <!-- 覆盖层列表 -->
+              <div v-if="overlays.length > 0" class="space-y-2 max-h-40 overflow-y-auto">
+                <div 
+                  v-for="overlay in overlays" 
+                  :key="overlay.id"
+                  class="flex items-center justify-between p-2 bg-gray-50 rounded text-sm"
+                >
+                  <span class="truncate">{{ overlay.text }}</span>
+                  <UButton @click="removeOverlay(overlay.id)" color="error" variant="ghost" size="xs">
+                    <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+                  </UButton>
+                </div>
+              </div>
+            </div>
+          </InfoCard>
+        </AppSidebar>
       </div>
     </ClientOnly>
-  </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">

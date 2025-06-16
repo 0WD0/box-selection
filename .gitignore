@@ -23,10 +23,10 @@ logs
 .env.*
 !.env.example
 
-# Database files
-db/sqlite.db
-db/sqlite.db-*
-db/migrations/
+# NuxtHub local data
+.data/
+
+# Database files (if any local SQLite files)
 *.db
 *.sqlite
 *.sqlite3

@@ -1,13 +1,11 @@
-import { db, visualBlocks } from '~/db'
-
 export default defineEventHandler(async (event) => {
   try {
-    const blocks = await db.select().from(visualBlocks)
+    const blocks = await useDrizzle().select().from(tables.visualBlocks)
     return { blocks }
-  } catch (error) {
+  } catch (error: any) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to fetch visual blocks'
+      statusMessage: `Failed to fetch visual blocks: ${error.message}`
     })
   }
 }) 
