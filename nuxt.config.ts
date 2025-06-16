@@ -15,8 +15,9 @@ export default defineNuxtConfig({
   
   // NuxtHub 配置
   hub: {
-    database: true,
     workers: true,
+    blob: true,
+    database: true,
   },
 
   // Nitro 配置（用于任务支持）

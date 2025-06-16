@@ -235,7 +235,7 @@ CREATE TABLE annotations (
 - `middle.json`: MinerU处理后的布局数据
 
 文件通过以下API访问：
-- PDF文件: `/api/pdf`
+- PDF文件: `/api/files/origin.pdf`
 - JSON数据: 服务器端直接读取
 
 ### 数据库配置

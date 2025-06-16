@@ -58,15 +58,13 @@ export default defineEventHandler(async (event) => {
   console.log('🔄 init-db.post.ts: 收到初始化请求')
   
     try {
-    // 从assets目录读取文件
+    // 直接从assets目录读取JSON文件（简化方案）
     console.log('📡 尝试从assets目录读取middle.json')
     
-    // 在服务器端直接读取assets文件
     const fs = await import('fs')
     const path = await import('path')
     
     const filePath = path.resolve('./assets/data/middle.json')
-    console.log(`📂 文件路径: ${filePath}`)
     
     if (!fs.existsSync(filePath)) {
       console.error(`❌ 文件不存在: ${filePath}`)

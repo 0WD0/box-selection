@@ -213,7 +213,7 @@ const overlays = ref<Array<{
   text: string
 }>>([])
 
-const pdfUrl = '/api/pdf'
+const pdfUrl = '/api/files/origin.pdf'
 
 // 加载PDF
 const loadPdf = async () => {
