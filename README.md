@@ -1,184 +1,378 @@
 # 🚀 视觉块批注系统
 
-我在做一个基于广义的块的笔记软件。所谓的广义的块是把纯文本块推广到了其他信息媒介上，比如说 PDF、网页、视频。
+> 一个基于视觉块的智能PDF批注和区域管理系统
 
 ## 📋 项目概述
 
-我已经对PDF做了 layout 划分，得到了若干视觉块。相比于一般的批注方式（划词和框选），我更想实现一种基于视觉块的批注方式。
+本项目实现了一种创新的PDF批注方式，相比传统的划词和框选，我们基于视觉块进行批注。系统使用MinerU进行PDF布局分析，识别出各种视觉块（文本、标题、图片、表格等），用户可以通过鼠标框选、键盘导航等方式选择视觉块，创建区域并添加批注。
 
 ### 🎯 核心概念
 
-- **视觉块**: 树上的一个节点，所有视觉块组成的结构是一棵树（初始状态是所有视觉块都连向一个隐形块）
-- **区域**: 树上的一个子树，表示若干连续的视觉块，在表现上是一个矩形
-- **批注**: 建立了树上节点编号和批注文本编号之间的联系
+- **视觉块 (Visual Blocks)**: PDF中的基本元素单位，如文本段落、标题、图片、表格等
+- **区域 (Regions)**: 由一个或多个视觉块组成的批注区域，表现为一个矩形边界
+- **批注 (Annotations)**: 与区域关联的文本注释
+- **树形结构**: 视觉块可以组织成树形结构，支持层次化管理
+
+### ✨ 主要特性
+
+- 🖱️ **多种选择方式**: 支持鼠标框选、点击选择、键盘导航
+- 🎯 **智能框选**: 框选自动识别相交的视觉块，支持切换选择状态
+- 🖐️ **画布拖拽**: 中键拖拽移动画布，双击重置位置
+- ⌨️ **Vim风格导航**: 支持hjkl键导航和空格键选择
+- 🎨 **丰富视觉反馈**: 不同颜色和样式表示不同状态
+- 📊 **实时统计**: 系统状态页面显示各类数据统计
+- 🔄 **实时更新**: 所有操作实时同步到数据库
+- 📱 **响应式设计**: 支持不同屏幕尺寸
 
 ## 🔧 技术栈
 
-- **前端**: Nuxt 3 + Vue 3 + TypeScript
-- **PDF处理**: PDF.js + MinerU layout数据
-- **数据库**: SQLite + Drizzle ORM + LibSQL
-- **部署**: 计划使用 NuxtHub 部署到 Cloudflare
+- **前端框架**: Nuxt3
+- **状态管理**: Pinia
+- **PDF处理**: PDF.js + MinerU布局分析
+- **数据库**: SQLite + Drizzle ORM
+- **UI组件**: Nuxt UI + Tailwind CSS
+- **部署**: Cloudflare Workers
 
 ## 📁 项目结构
 
 ```
 box-selection/
 ├── components/
-│   └── VisualBlockAnnotator.vue    # 主要的视觉块批注组件
-├── db/
-│   ├── schema.ts                   # 数据库模式定义
-│   └── index.ts                    # 数据库连接
+│   ├── PDFViewer.vue              # PDF查看器和视觉块渲染
+│   ├── BlockSelectionPanel.vue    # 视觉块选择面板
+│   ├── RegionPanel.vue            # 区域管理面板
+│   ├── PageControls.vue           # 页面控制组件
+│   ├── KeyboardHelp.vue           # 键盘帮助组件
+│   ├── AppLayout.vue              # 应用布局
+│   ├── AppHeader.vue              # 应用头部
+│   ├── AppSidebar.vue             # 侧边栏
+│   └── AppBreadcrumb.vue          # 面包屑导航
+├── stores/
+│   ├── pdf.ts                     # PDF状态管理
+│   ├── annotation.ts              # 批注状态管理
+│   ├── system.ts                  # 系统状态管理
+│   └── ui.ts                      # UI状态管理
 ├── pages/
-│   ├── index.vue                   # 主页
-│   ├── annotator.vue               # 批注系统页面
-│   ├── read-all.vue                # PDF查看器
-│   └── admin.vue                   # 数据库管理页面
-├── server/api/                     # 服务端API
+│   ├── index.vue                  # 主页
+│   ├── annotator.vue              # 批注系统主页面
+│   ├── status.vue                 # 系统状态页面
+│   └── admin.vue                  # 数据库管理页面
+├── server/api/
+│   ├── blocks/                    # 视觉块API
+│   ├── regions/                   # 区域API
+│   ├── annotations/               # 批注API
+│   └── stats.get.ts               # 统计API
+├── db/
+│   ├── schema.ts                  # 数据库模式
+│   └── index.ts                   # 数据库连接
 ├── utils/
-│   └── pdf-parser.ts               # PDF数据解析工具
+│   ├── pdf-parser.ts              # PDF解析工具
+│   └── geometry.ts                # 几何计算工具
 ├── public/data/
-│   ├── origin.pdf                  # 原始PDF文件
-│   └── middle.json                 # MinerU处理后的layout数据
-└── drizzle.config.ts               # 数据库配置
+│   ├── origin.pdf                 # 原始PDF文件
+│   └── middle.json                # MinerU布局数据
+└── nuxt.config.ts                 # Nuxt配置
 ```
 
 ## 🚀 快速开始
 
-### 1. 安装依赖
+### 环境要求
+
+- Node.js 18+
+- pnpm (推荐) 或 npm
+
+### 1. 克隆项目
+
+```bash
+git clone <repository-url>
+cd box-selection
+```
+
+### 2. 安装依赖
 
 ```bash
 pnpm install
 ```
 
-### 2. 初始化数据库
+### 3. 初始化数据库
 
 ```bash
+# 推送数据库模式
 npx drizzle-kit push
+
+# 导入PDF数据 (首次运行)
+pnpm dev
+# 然后访问 http://localhost:3000/admin 进行数据导入
 ```
 
-### 3. 启动开发服务器
+### 4. 启动开发服务器
 
 ```bash
 pnpm dev
 ```
 
-### 4. 访问应用
+### 5. 访问应用
 
-- 主页: http://localhost:3000
-- 批注系统: http://localhost:3000/annotator
-- 数据库管理: http://localhost:3000/admin
-- PDF查看器: http://localhost:3000/read-all
+- 🏠 **主页**: http://localhost:3000
+- ✏️ **批注系统**: http://localhost:3000/annotator  
+- 📊 **系统状态**: http://localhost:3000/status
+- 🛠️ **数据管理**: http://localhost:3000/admin
 
 ## 📖 使用说明
 
 ### 🖱️ 鼠标操作
 
-1. **框选视觉块**: 在PDF上拖拽鼠标可以框选与选择框相交的视觉块
-2. **点击选择**: 直接点击视觉块可以单独选择/取消选择
-3. **创建区域**: 选择多个视觉块后，点击"创建区域"按钮
-4. **添加批注**: 在创建的区域中添加文本批注
+| 操作 | 功能 | 说明 |
+|------|------|------|
+| **左键拖拽** | 框选视觉块 | 拖拽创建选择框，自动选择相交的视觉块 |
+| **左键点击** | 切换选择状态 | 点击视觉块或区域切换其选择状态 |
+| **中键拖拽** | 移动画布 | 按住中键拖拽可以移动整个PDF画布 |
+| **左键双击** | 重置画布 | 双击左键将画布位置重置到原点 |
+| **鼠标悬浮** | 显示信息 | 悬浮在视觉块上显示详细信息提示 |
 
-### ⌨️ 键盘操作 (类似Vim)
+### ⌨️ 键盘导航 (Vim风格) WIP
 
-- `h` - 向左移动当前焦点
-- `j` - 向下移动当前焦点  
-- `k` - 向上移动当前焦点
-- `l` - 向右移动当前焦点
-- `v` - 进入/退出选择模式
-- `Space` - 切换当前块的选择状态
-- `Esc` - 退出选择模式
+| 按键 | 功能 | 说明 |
+|------|------|------|
+| `h` | 向左导航 | 移动到左侧最近的视觉块 |
+| `j` | 向下导航 | 移动到下方最近的视觉块 |
+| `k` | 向上导航 | 移动到上方最近的视觉块 |
+| `l` | 向右导航 | 移动到右侧最近的视觉块 |
+| `v` | 选择模式 | 进入/退出选择模式 |
+| `Space` | 切换选择 | 切换当前焦点块的选择状态 |
+| `Esc` | 退出模式 | 退出当前选择模式 |
+
 
 ### 🎨 视觉反馈
 
-- **蓝色边框**: 未选中的视觉块
-- **绿色边框**: 已选中的视觉块
-- **黄色边框**: 当前焦点块
-- **红色边框**: 已创建的区域
-- **虚线框**: 鼠标框选时的选择框
+| 颜色/样式 | 含义 | 说明 |
+|-----------|------|------|
+| 🔵 **蓝色边框** | 普通视觉块 | 文本类型的视觉块 |
+| 🟣 **紫色边框** | 标题块 | 标题类型的视觉块 |
+| 🟢 **绿色边框** | 已选中 | 当前选中的视觉块 |
+| 🟡 **黄色边框** | 当前焦点 | 键盘导航的当前焦点块 |
+| 🔴 **红色虚线** | 区域边界 | 已创建的批注区域 |
+| 🔷 **蓝色虚线** | 选择框 | 鼠标拖拽时的选择框 |
+
+### 📝 区域和批注管理
+
+1. **创建区域**:
+   - 选择一个或多个视觉块
+   - 点击"创建区域"按钮
+   - 系统自动计算边界框并创建区域
+
+2. **添加批注**: (WIP)
+   - 在区域面板中找到对应区域
+   - 点击编辑按钮添加批注文本
+   - 批注会实时保存到数据库
+
+3. **删除区域**:
+   - 在区域面板中点击删除按钮
+   - 确认后区域和相关批注会被删除
 
 ## 🗄️ 数据库结构
 
-### 表结构
+### 主要数据表
 
-1. **visual_blocks** - 视觉块表
-   - 存储每个视觉块的位置、类型、内容等信息
-   - 支持树形结构（parent_id字段）
+```sql
+-- 视觉块表
+CREATE TABLE visual_blocks (
+  id INTEGER PRIMARY KEY,
+  page_index INTEGER NOT NULL,
+  block_index INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  bbox TEXT NOT NULL,
+  content TEXT,
+  level INTEGER DEFAULT 0,
+  parent_id INTEGER
+);
 
-2. **regions** - 区域表
-   - 存储创建的区域信息
-   - 包含区域的边界框信息
+-- 区域表  
+CREATE TABLE regions (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  annotation TEXT,
+  bbox TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
-3. **region_blocks** - 区域-块关系表
-   - 多对多关系表，记录哪些视觉块属于哪个区域
+-- 区域-块关系表
+CREATE TABLE region_blocks (
+  id INTEGER PRIMARY KEY,
+  region_id INTEGER NOT NULL,
+  block_id INTEGER NOT NULL,
+  FOREIGN KEY (region_id) REFERENCES regions(id),
+  FOREIGN KEY (block_id) REFERENCES visual_blocks(id)
+);
 
-4. **annotations** - 批注表
-   - 存储批注内容
-   - 关联到具体的区域
+-- 批注表
+CREATE TABLE annotations (
+  id INTEGER PRIMARY KEY,
+  region_id INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (region_id) REFERENCES regions(id)
+);
+```
 
 ### 数据流程
 
-1. **数据导入**: 从MinerU的middle.json文件解析视觉块数据
-2. **交互选择**: 用户通过鼠标或键盘选择视觉块
-3. **区域创建**: 将选中的视觉块组成一个区域
-4. **批注添加**: 为区域添加文本批注
-5. **数据持久化**: 所有操作都保存到SQLite数据库
+1. **数据导入**: 从`middle.json`解析MinerU布局数据
+2. **视觉块渲染**: 在PDF画布上绘制视觉块边界  
+3. **交互选择**: 响应鼠标和键盘事件选择视觉块
+4. **区域创建**: 计算选中块的边界框创建区域
+5. **批注管理**: 添加、编辑、删除区域批注
+6. **数据持久化**: 所有操作实时同步到SQLite数据库
 
-## 🔄 数据格式
+## 🎛️ 系统配置
 
-### MinerU数据格式
+### PDF配置
 
-项目使用MinerU处理PDF得到的layout信息，格式参考：
-https://mineru.readthedocs.io/zh-cn/latest/user_guide/tutorial/output_file_description.html
+在`public/data/`目录下放置以下文件：
+- `origin.pdf`: 原始PDF文件
+- `middle.json`: MinerU处理后的布局数据
 
-### 视觉块数据结构
+### 数据库配置
 
 ```typescript
-interface VisualBlock {
-  id: number
-  pageIndex: number
-  blockIndex: number
-  type: string        // text, title, image, table等
-  bbox: string        // JSON格式的边界框 [x, y, width, height]
-  content: string     // 文本内容
-  level: number       // 层级
-  parentId: number    // 父节点ID
+// drizzle.config.ts
+export default {
+  schema: "./db/schema.ts",
+  out: "./drizzle",
+  driver: "libsql",
+  dbCredentials: {
+    url: process.env.NUXT_DB_URL || "file:local.db"
+  }
 }
 ```
 
-## 🛠️ 开发说明
+### 环境变量
+
+```bash
+# .env
+NUXT_DB_URL=file:local.db  # 本地SQLite文件路径
+```
+
+## 🔍 API接口
+
+### RESTful API
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/blocks` | GET | 获取所有视觉块 |
+| `/api/regions` | GET/POST | 获取/创建区域 |
+| `/api/regions/:id` | PUT/DELETE | 更新/删除区域 |
+| `/api/regions/page/:page` | GET | 获取指定页面的区域 |
+| `/api/stats` | GET | 获取系统统计信息 |
+
+### 状态管理
+
+使用Pinia进行状态管理，主要stores：
+
+- **pdfStore**: PDF文档、页面、视觉块状态
+- **annotationStore**: 选择状态、区域、批注管理
+- **systemStore**: 系统状态、统计信息
+- **uiStore**: UI状态、主题、布局
+
+## 🚀 部署
+
+### 本地构建
+
+```bash
+# 构建生产版本
+pnpm build
+
+# 预览构建结果
+pnpm preview
+```
+
+### Cloudflare Pages部署
+
+```bash
+# 安装Wrangler CLI
+npm install -g wrangler
+
+# 登录Cloudflare
+wrangler login
+
+# 部署到Cloudflares Pages
+wrangler pages deploy dist/
+```
+
+## 🛠️ 开发指南
 
 ### 添加新功能
 
-1. **新的交互方式**: 在`VisualBlockAnnotator.vue`中添加事件处理
-2. **新的数据类型**: 在`db/schema.ts`中扩展数据库模式
-3. **新的API**: 在`server/api/`目录下添加端点
-4. **新的工具函数**: 在`utils/`目录下添加
+1. **新视觉块类型**: 在`utils/pdf-parser.ts`中添加解析逻辑
+2. **新交互方式**: 在`components/PDFViewer.vue`中添加事件处理
+3. **新API端点**: 在`server/api/`目录下创建新文件
+4. **新状态数据**: 在对应的store中添加状态和方法
 
-### 部署准备
+### 性能优化
 
-项目设计为可以部署到Cloudflare Pages，使用NuxtHub：
+- 使用Canvas进行视觉块渲染，避免DOM过多
+- 实现视觉块坐标缓存，减少重复计算
+- 使用防抖和节流优化频繁操作
+
+### 调试技巧
 
 ```bash
-# 安装NuxtHub CLI
-npm i -g nuxthub
-
-# 部署到Cloudflare
-nuxthub deploy
+# 启用调试模式
+DEBUG=1 pnpm dev
 ```
 
-## 📝 TODO
+## 📊 系统监控
 
-- [ ] 实现视觉块的自动层级划分
-- [ ] 支持更多的批注类型（高亮、箭头等）
-- [ ] 优化键盘导航的性能
-- [ ] 添加导出功能
-- [ ] 支持多用户协作
-- [ ] 移动端适配优化
+访问 `/status` 页面查看：
+- 📈 数据库统计信息
+- 🔧 API健康状态  
+- 💾 数据存储使用情况
+
+## 🐛 常见问题
+
+### Q: 视觉块位置不准确？
+A: 检查`overlayDimensions`的计算，确保PDF渲染尺寸与坐标转换一致。
+
+### Q: 框选不工作？  
+A: 确认鼠标事件处理正确，检查Canvas层级和事件穿透设置。
+
+### Q: 数据库连接失败？
+A: 检查SQLite文件权限，确保Drizzle配置正确。
+
+## 📝 更新日志
+
+### v1.0.0 (Current)
+- ✅ 完整的视觉块选择和区域管理功能
+- ✅ 画布拖拽和键盘导航
+- ✅ 实时数据同步和状态管理
+- ✅ 系统状态监控
+- ✅ 响应式UI设计
+
+### 下一步计划
+- 🔄 支持PDF多页面批注
+- 📱 移动端优化
+- 🎨 更多批注类型（高亮、箭头等）
+- 👥 多用户协作功能
+- 📤 批注导出功能
 
 ## 🤝 贡献
 
-欢迎提交Issue和Pull Request来改进这个项目！
+欢迎贡献代码和建议！请遵循以下步骤：
 
-## �� 许可证
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'Add amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 开启 Pull Request
 
-MIT License
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+---
+
+<p align="center">
+  <strong>🚀 让PDF批注更智能，让知识管理更高效！</strong>
+</p>
